@@ -1,79 +1,178 @@
-const products = [
-    { id: 1, name: 'Zanahoria', price: 800, icon: '🥕' },
-    { id: 2, name: 'Papa', price: 600, icon: '🥔' },
-    { id: 3, name: 'Cebolla', price: 700, icon: '🧅' },
-    { id: 4, name: 'Tomate', price: 1200, icon: '🍅' },
-    { id: 5, name: 'Lechuga', price: 400, icon: '🥬' }
+// --- ESTADO GLOBAL ---
+let products = JSON.parse(localStorage.getItem('inventory')) || [
+    { id: 1, name: 'Zanahoria', price: 800, icon: '🥕', stock: 100 },
+    { id: 2, name: 'Papa', price: 600, icon: '🥔', stock: 150 },
+    { id: 3, name: 'Cebolla', price: 700, icon: '🧅', stock: 80 },
+    { id: 4, name: 'Tomate', price: 1200, icon: '🍅', stock: 60 },
+    { id: 5, name: 'Lechuga', price: 400, icon: '🥬', stock: 40 }
 ];
 
 let cart = [];
-let currentQty = "";
+let salesHistory = JSON.parse(localStorage.getItem('salesHistory')) || [];
+let currentInput = ""; // Para la calculadora/cantidad
 
-// Renderizar productos
-function renderProducts(data = products) {
+// --- NAVEGACIÓN ---
+function showSection(sectionId) {
+    // Ocultar todas las secciones principales
+    document.querySelector('.sidebar').style.display = sectionId === 'venta' ? 'flex' : 'none';
+    const mainArea = document.querySelector('.products-area');
+    
+    if (sectionId === 'venta') {
+        renderVenta();
+    } else if (sectionId === 'inventario') {
+        renderInventario();
+    } else if (sectionId === 'historial') {
+        renderHistorial();
+    }
+}
+
+// --- MÓDULO: CALCULADORA / CANTIDAD ---
+function addNum(n) {
+    if (n === '.' && currentInput.includes('.')) return;
+    currentInput += n;
+    updateDisplay();
+}
+
+function deleteNum() {
+    currentInput = currentInput.slice(0, -1);
+    updateDisplay();
+}
+
+function clearQty() {
+    currentInput = "";
+    updateDisplay();
+}
+
+function updateDisplay() {
+    document.getElementById('qty-display').innerText = currentInput || "0";
+}
+
+// --- MÓDULO: VENTA ---
+function renderVenta() {
+    const area = document.querySelector('.products-area');
+    area.innerHTML = `
+        <input type="text" id="search" placeholder="🔍 Buscar producto..." onkeyup="filterProducts()">
+        <div class="product-grid" id="product-grid"></div>
+    `;
+    renderProductCards(products);
+}
+
+function renderProductCards(data) {
     const grid = document.getElementById('product-grid');
     grid.innerHTML = data.map(p => `
         <div class="card" onclick="addToCart(${p.id})">
             <div style="font-size: 40px">${p.icon}</div>
             <h4>${p.name}</h4>
             <p style="color: green; font-weight: bold;">$${p.price}/kg</p>
+            <small>Stock: ${p.stock}kg</small>
         </div>
     `).join('');
 }
 
-// Lógica del Teclado
-function addNum(n) {
-    currentQty += n;
-    document.getElementById('qty-display').innerText = currentQty;
-}
-
-function clearQty() {
-    currentQty = "";
-    document.getElementById('qty-display').innerText = "0";
-}
-
-function deleteNum() {
-    currentQty = currentQty.slice(0, -1);
-    document.getElementById('qty-display').innerText = currentQty || "0";
-}
-
-// Lógica del Carrito
 function addToCart(id) {
     const product = products.find(p => p.id === id);
-    const qty = parseFloat(currentQty) || 1;
+    const qty = parseFloat(currentInput) || 1;
+
+    if (qty > product.stock) {
+        alert("No hay suficiente stock");
+        return;
+    }
+
+    const item = { 
+        ...product, 
+        qty, 
+        total: product.price * qty,
+        timestamp: new Date().toLocaleString()
+    };
     
-    cart.push({ ...product, qty, total: product.price * qty });
+    cart.push(item);
     updateCartUI();
     clearQty();
 }
 
-function updateCartUI() {
-    const container = document.getElementById('cart-items');
-    if (cart.length === 0) {
-        container.innerHTML = '<p class="empty-msg">El carrito está vacío</p>';
-        return;
+function confirmSale() {
+    if (cart.length === 0) return;
+
+    // Restar stock y guardar historial
+    cart.forEach(item => {
+        const p = products.find(prod => prod.id === item.id);
+        p.stock -= item.qty;
+    });
+
+    const sale = {
+        id: Date.now(),
+        items: [...cart],
+        total: cart.reduce((acc, i) => acc + i.total, 0),
+        date: new Date().toLocaleString()
+    };
+
+    salesHistory.push(sale);
+    localStorage.setItem('inventory', JSON.stringify(products));
+    localStorage.setItem('salesHistory', JSON.stringify(salesHistory));
+    
+    cart = [];
+    updateCartUI();
+    renderVenta();
+    alert("Venta realizada con éxito");
+}
+
+// --- MÓDULO: INVENTARIO ---
+function renderInventario() {
+    const area = document.querySelector('.products-area');
+    area.innerHTML = `
+        <h2>Gestión de Inventario</h2>
+        <table style="width:100%; background:white; border-collapse: collapse;">
+            <thead>
+                <tr style="background:#ddd"><th>Producto</th><th>Precio/kg</th><th>Stock Actual</th><th>Acción</th></tr>
+            </thead>
+            <tbody>
+                ${products.map(p => `
+                    <tr>
+                        <td>${p.icon} ${p.name}</td>
+                        <td>$${p.price}</td>
+                        <td>${p.stock} kg</td>
+                        <td><button onclick="addStock(${p.id})">+ Stock</button></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function addStock(id) {
+    const qty = prompt("¿Cuántos kg desea añadir?");
+    if (qty) {
+        products.find(p => p.id === id).stock += parseFloat(qty);
+        localStorage.setItem('inventory', JSON.stringify(products));
+        renderInventario();
     }
+}
 
-    container.innerHTML = cart.map(item => `
-        <div style="display:flex; justify-content:space-between; padding: 5px 10px; border-bottom: 1px solid #eee">
-            <span>${item.name} (x${item.qty})</span>
-            <span>$${item.total.toFixed(2)}</span>
+// --- MÓDULO: HISTORIAL ---
+function renderHistorial() {
+    const area = document.querySelector('.products-area');
+    area.innerHTML = `
+        <h2>Historial de Ventas</h2>
+        <div style="background:white; padding:20px;">
+            ${salesHistory.reverse().map(sale => `
+                <div style="border-bottom:1px solid #eee; padding:10px 0;">
+                    <strong>Ticket #${sale.id}</strong> - ${sale.date}<br>
+                    ${sale.items.map(i => `${i.name} (x${i.qty})`).join(', ')}<br>
+                    <strong>Total: $${sale.total.toFixed(2)}</strong>
+                </div>
+            `).join('')}
         </div>
-    `).join('');
-
-    const total = cart.reduce((acc, item) => acc + item.total, 0);
-    document.getElementById('total').innerText = `$${total.toFixed(2)}`;
+    `;
 }
 
-// Filtro de búsqueda
-function filterProducts() {
-    const term = document.getElementById('search').value.toLowerCase();
-    const filtered = products.filter(p => p.name.toLowerCase().includes(term));
-    renderProducts(filtered);
-}
+// Inicialización corregida
+document.querySelectorAll('nav button').forEach((btn, index) => {
+    const views = ['venta', 'inventario', 'historial'];
+    btn.onclick = () => {
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        showSection(views[index]);
+    };
+});
 
-// Inicialización
-renderProducts();
-setInterval(() => {
-    document.getElementById('clock').innerText = new Date().toLocaleTimeString();
-}, 1000);
+showSection('venta');
