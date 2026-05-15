@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#1a3c2e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fruver" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="icon" type="image/x-icon" href="/icons/icon.ico" />
 </head>
 <body>
 
@@ -118,7 +127,7 @@
             <button class="pay-btn" data-method="transferencia" onclick="selectPayment(this)">📲 Transf.</button>
             <button class="pay-btn" data-method="tarjeta" onclick="selectPayment(this)">💳 Tarjeta</button>
           </div>
-          <button class="btn-confirm" onclick="confirmSale()">✅ Confirmar Venta</button>
+          <button class="btn-confirm" onclick="(window._confirmSaleWithOffline||confirmSale)()">✅ Confirmar Venta</button>
           <button class="btn-print" onclick="printInvoice()">🖨 Imprimir Factura</button>
         </div>
       </div>
@@ -387,8 +396,87 @@
 
 <div id="toast" class="toast hidden"></div>
 
+<!-- Banner instalar PWA -->
+<div id="installBanner" style="
+  display:none; position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);
+  background:#1a3c2e; color:#fff; border-radius:14px; padding:.9rem 1.4rem;
+  box-shadow:0 8px 32px rgba(0,0,0,.3); z-index:8000;
+  align-items:center; gap:1rem; max-width:360px; width:90%;
+">
+  <span style="font-size:1.6rem">🌿</span>
+  <div style="flex:1">
+    <div style="font-weight:700;font-size:.9rem">Instalar Fruver</div>
+    <div style="font-size:.78rem;color:#74c69d">Funciona sin internet</div>
+  </div>
+  <button id="installBtn" style="
+    background:#40916c;color:#fff;border:none;border-radius:8px;
+    padding:.45rem .9rem;font-weight:700;font-size:.85rem;cursor:pointer;
+  ">Instalar</button>
+  <button id="dismissBtn" style="
+    background:transparent;color:#74c69d;border:none;font-size:1.1rem;cursor:pointer;padding:.2rem;
+  ">✕</button>
+</div>
+
 <!-- Script tipo módulo (Firebase usa import/export) -->
 <script type="module" src="script.js"></script>
+
+<script>
+// ── Registrar Service Worker ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/fruver-2/sw.js')
+      .then(reg => {
+        console.log('✅ SW registrado:', reg.scope);
+        // Si hay nueva versión disponible, la activa automáticamente
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              newWorker.postMessage('skipWaiting');
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('SW error:', err));
+  });
+}
+
+// ── Banner de instalación (PWA prompt) ──
+let deferredPrompt = null;
+const banner     = document.getElementById('installBanner');
+const installBtn = document.getElementById('installBtn');
+const dismissBtn = document.getElementById('dismissBtn');
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Solo mostramos si no la descartó antes
+  if (!localStorage.getItem('fruver_pwa_dismissed')) {
+    setTimeout(() => { banner.style.display = 'flex'; }, 3000);
+  }
+});
+
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') {
+    banner.style.display = 'none';
+  }
+  deferredPrompt = null;
+});
+
+dismissBtn.addEventListener('click', () => {
+  banner.style.display = 'none';
+  localStorage.setItem('fruver_pwa_dismissed', '1');
+});
+
+// Ocultar banner si ya está instalada
+window.addEventListener('appinstalled', () => {
+  banner.style.display = 'none';
+  deferredPrompt = null;
+});
+</script>
 
 </body>
 </html>
