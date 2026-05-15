@@ -19,9 +19,17 @@ let state = {
   pendingProductId: null,   // para modal de cantidad
 };
 
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = '1234';
+// Credenciales dinámicas (se cargan desde localStorage)
+let ADMIN_USER = 'admin';
+let ADMIN_PASS = '1234';
 const LOW_STOCK_THRESHOLD = 5;
+
+function loadCredentials() {
+  const creds = loadLS('credentials', { user: 'admin', pass: '1234', lastChange: null });
+  ADMIN_USER = creds.user;
+  ADMIN_PASS = creds.pass;
+  return creds;
+}
 
 // Productos de ejemplo
 const DEFAULT_PRODUCTS = [
@@ -85,6 +93,7 @@ function playBeep() {
 //  LOGIN / LOGOUT
 // ══════════════════════════════════════════
 function doLogin() {
+  loadCredentials(); // siempre cargar las más recientes
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
   if (user === ADMIN_USER && pass === ADMIN_PASS) {
@@ -110,6 +119,7 @@ function doLogout() {
 //  INIT
 // ══════════════════════════════════════════
 function init() {
+  loadCredentials();
   state.products = loadLS('products', DEFAULT_PRODUCTS);
   state.sales    = loadLS('sales', []);
   state.invoiceCounter = loadLS('invoiceCounter', 1);
@@ -120,6 +130,7 @@ function init() {
   updateInvoiceNum();
   startClock();
   updateDashboard();
+  loadConfigSection();
 }
 
 // ══════════════════════════════════════════
@@ -580,12 +591,13 @@ function printInvoice() {
 }
 
 function showInvoiceModal(sale) {
+  const biz = getBizInfo();
   const rows = sale.items.map(i => `
     <tr>
       <td>${i.emoji} ${i.name}</td>
       <td style="text-align:center">${i.qty} ${i.unit}</td>
-      <td style="text-align:right">${fmt(i.price)}</td>
-      <td style="text-align:right">${fmt(i.price * i.qty)}</td>
+      <td style="text-align:right">${fmt(Math.round(i.price))}</td>
+      <td style="text-align:right">${fmt(Math.round(i.price * i.qty))}</td>
     </tr>
   `).join('');
 
@@ -593,8 +605,10 @@ function showInvoiceModal(sale) {
     <div class="invoice-print">
       <div class="inv-header">
         <div style="font-size:2rem">🌿</div>
-        <h2>La Legumbrería</h2>
-        <p>Tu mercado de confianza</p>
+        <h2>${biz.name}</h2>
+        <p>${biz.slogan}</p>
+        ${biz.phone   ? `<p>📞 ${biz.phone}</p>` : ''}
+        ${biz.address ? `<p>📍 ${biz.address}</p>` : ''}
         <hr style="margin:.5rem 0;border-color:var(--border)">
         <p><b>${sale.invoice}</b> · ${sale.date}</p>
       </div>
@@ -610,14 +624,14 @@ function showInvoiceModal(sale) {
         <tbody>${rows}</tbody>
       </table>
       <table>
-        <tr><td>Subtotal</td><td style="text-align:right">${fmt(sale.subtotal)}</td></tr>
-        ${sale.discountPct > 0 ? `<tr><td>Descuento (${sale.discountPct}%)</td><td style="text-align:right">-${fmt(sale.discount)}</td></tr>` : ''}
-        <tr class="inv-total"><td><b>TOTAL</b></td><td style="text-align:right"><b>${fmt(sale.total)}</b></td></tr>
+        <tr><td>Subtotal</td><td style="text-align:right">${fmt(Math.round(sale.subtotal))}</td></tr>
+        ${sale.discountPct > 0 ? `<tr><td>Descuento (${sale.discountPct}%)</td><td style="text-align:right">-${fmt(Math.round(sale.discount))}</td></tr>` : ''}
+        <tr class="inv-total"><td><b>TOTAL</b></td><td style="text-align:right"><b>${fmt(Math.round(sale.total))}</b></td></tr>
         <tr><td>Método de pago</td><td style="text-align:right;text-transform:capitalize">${sale.method}</td></tr>
       </table>
       <div class="inv-footer">
-        <p>¡Gracias por su compra!</p>
-        <p>Vuelva pronto 🌿</p>
+        <p>${biz.footer}</p>
+        <p>🌿 ${biz.name}</p>
       </div>
     </div>
   `;
@@ -972,3 +986,94 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Escape') calcClear();
   else if (e.key === '%') calcOp('%');
 });
+
+// ══════════════════════════════════════════
+//  CONFIGURACIÓN – CREDENCIALES Y NEGOCIO
+// ══════════════════════════════════════════
+
+function loadConfigSection() {
+  const creds = loadLS('credentials', { user: 'admin', pass: '1234', lastChange: null });
+  const biz   = loadLS('bizInfo', { name: 'La Legumbrería', slogan: 'Tu mercado de confianza', phone: '', address: '', footer: '¡Gracias por su compra!' });
+
+  // Sesión activa
+  document.getElementById('sessionUser').textContent       = creds.user;
+  document.getElementById('sessionLastChange').textContent = creds.lastChange || 'Sin cambios';
+
+  // Datos del negocio
+  document.getElementById('bizName').value    = biz.name    || '';
+  document.getElementById('bizSlogan').value  = biz.slogan  || '';
+  document.getElementById('bizPhone').value   = biz.phone   || '';
+  document.getElementById('bizAddress').value = biz.address || '';
+  document.getElementById('bizFooter').value  = biz.footer  || '';
+
+  // Limpiar campos de credenciales
+  ['currentUser','currentPass','newUser','newPass','confirmPass'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('credError').textContent = '';
+}
+
+function saveCredentials() {
+  const currentUser = document.getElementById('currentUser').value.trim();
+  const currentPass = document.getElementById('currentPass').value;
+  const newUser     = document.getElementById('newUser').value.trim();
+  const newPass     = document.getElementById('newPass').value;
+  const confirmPass = document.getElementById('confirmPass').value;
+  const errEl       = document.getElementById('credError');
+
+  errEl.textContent = '';
+
+  // Validaciones
+  if (!currentUser || !currentPass) {
+    errEl.textContent = '❌ Ingresa tu usuario y contraseña actuales.'; return;
+  }
+  if (currentUser !== ADMIN_USER || currentPass !== ADMIN_PASS) {
+    errEl.textContent = '❌ Usuario o contraseña actual incorrectos.'; return;
+  }
+  if (!newUser) {
+    errEl.textContent = '❌ El nuevo usuario no puede estar vacío.'; return;
+  }
+  if (newPass.length < 4) {
+    errEl.textContent = '❌ La nueva contraseña debe tener al menos 4 caracteres.'; return;
+  }
+  if (newPass !== confirmPass) {
+    errEl.textContent = '❌ Las contraseñas nuevas no coinciden.'; return;
+  }
+
+  // Guardar
+  const creds = { user: newUser, pass: newPass, lastChange: now() };
+  saveLS('credentials', creds);
+  ADMIN_USER = newUser;
+  ADMIN_PASS = newPass;
+
+  // Actualizar panel de sesión
+  document.getElementById('sessionUser').textContent       = newUser;
+  document.getElementById('sessionLastChange').textContent = creds.lastChange;
+
+  // Limpiar campos
+  ['currentUser','currentPass','newUser','newPass','confirmPass'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+
+  showToast('✅ Credenciales actualizadas correctamente');
+}
+
+function saveBizInfo() {
+  const biz = {
+    name:    document.getElementById('bizName').value.trim()    || 'La Legumbrería',
+    slogan:  document.getElementById('bizSlogan').value.trim()  || 'Tu mercado de confianza',
+    phone:   document.getElementById('bizPhone').value.trim(),
+    address: document.getElementById('bizAddress').value.trim(),
+    footer:  document.getElementById('bizFooter').value.trim()  || '¡Gracias por su compra!',
+  };
+  saveLS('bizInfo', biz);
+  showToast('✅ Datos del negocio guardados');
+}
+
+// Exponer getBizInfo para usarla en la factura
+function getBizInfo() {
+  return loadLS('bizInfo', {
+    name: 'La Legumbrería', slogan: 'Tu mercado de confianza',
+    phone: '', address: '', footer: '¡Gracias por su compra!'
+  });
+}
