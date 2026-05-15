@@ -421,13 +421,24 @@
 <script type="module" src="script.js"></script>
 
 <script>
+// ══════════════════════════════════════════
+//  SAFETY NET — por si Firebase no responde,
+//  el loading desaparece en máximo 5 segundos
+// ══════════════════════════════════════════
+setTimeout(function() {
+  var el = document.getElementById('loadingOverlay');
+  if (el && el.style.display !== 'none') {
+    el.style.display = 'none';
+    console.warn('⚠ Safety net activado: loading cerrado por timeout');
+  }
+}, 5000);
+
 // ── Registrar Service Worker ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/fruver-2/sw.js')
       .then(reg => {
         console.log('✅ SW registrado:', reg.scope);
-        // Si hay nueva versión disponible, la activa automáticamente
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           newWorker.addEventListener('statechange', () => {
@@ -450,7 +461,6 @@ const dismissBtn = document.getElementById('dismissBtn');
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  // Solo mostramos si no la descartó antes
   if (!localStorage.getItem('fruver_pwa_dismissed')) {
     setTimeout(() => { banner.style.display = 'flex'; }, 3000);
   }
@@ -460,9 +470,7 @@ installBtn.addEventListener('click', async () => {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
   const { outcome } = await deferredPrompt.userChoice;
-  if (outcome === 'accepted') {
-    banner.style.display = 'none';
-  }
+  if (outcome === 'accepted') banner.style.display = 'none';
   deferredPrompt = null;
 });
 
@@ -471,7 +479,6 @@ dismissBtn.addEventListener('click', () => {
   localStorage.setItem('fruver_pwa_dismissed', '1');
 });
 
-// Ocultar banner si ya está instalada
 window.addEventListener('appinstalled', () => {
   banner.style.display = 'none';
   deferredPrompt = null;
