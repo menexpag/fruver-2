@@ -78,8 +78,17 @@ const DEFAULT_PRODUCTS = [
 ];
 
 // ══════════════════════════════════════════
-//  TOAST / LOADING
+//  UTILIDADES: TIMEOUT / TOAST / LOADING
 // ══════════════════════════════════════════
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), ms)
+    )
+  ]);
+}
+
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -93,7 +102,7 @@ function showLoading(msg = 'Cargando…') {
   if (!el) {
     el = document.createElement('div');
     el.id = 'loadingOverlay';
-    el.style.cssText = `position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.5);
+    el.style.cssText = `position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);
       display:flex;align-items:center;justify-content:center;`;
     el.innerHTML = `<div style="background:var(--surface);border-radius:16px;padding:2rem 2.5rem;
       text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.25)">
@@ -106,6 +115,7 @@ function showLoading(msg = 'Cargando…') {
     el.style.display = 'flex';
   }
 }
+
 function hideLoading() {
   const el = document.getElementById('loadingOverlay');
   if (el) el.style.display = 'none';
@@ -136,10 +146,7 @@ async function doLogin() {
 
   try {
     if (navigator.onLine) {
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), 4000)
-      );
-      const creds = await Promise.race([fbGet('config/credentials'), timeout]);
+      const creds = await withTimeout(fbGet('config/credentials'), 4000);
       if (creds) {
         ADMIN_USER = creds.user;
         ADMIN_PASS = creds.pass;
@@ -150,18 +157,19 @@ async function doLogin() {
       if (cached) { ADMIN_USER = cached.user; ADMIN_PASS = cached.pass; }
     }
   } catch(e) {
+    // Firebase no responde → usar caché local
     const cached = loadLS('credentials', null);
     if (cached) { ADMIN_USER = cached.user; ADMIN_PASS = cached.pass; }
+  } finally {
+    hideLoading();
   }
 
   if (user === ADMIN_USER && pass === ADMIN_PASS) {
     saveLS('credentials', { user: ADMIN_USER, pass: ADMIN_PASS });
-    hideLoading();
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     await init();
   } else {
-    hideLoading();
     errEl.textContent = navigator.onLine
       ? '❌ Usuario o contraseña incorrectos'
       : '❌ Credenciales incorrectas (modo offline)';
@@ -186,16 +194,101 @@ async function init() {
   await initWithOfflineFallback();
 }
 
+// ──────────────────────────────────────────
+//  INIT CON FALLBACK OFFLINE (CORREGIDO)
+// ──────────────────────────────────────────
+async function initWithOfflineFallback() {
+  showLoading('Cargando datos…');
+  try {
+    if (!navigator.onLine) throw new Error('offline');
+
+    // Credenciales
+    try {
+      const creds = await withTimeout(fbGet('config/credentials'), 4000);
+      if (creds) {
+        ADMIN_USER = creds.user;
+        ADMIN_PASS = creds.pass;
+        saveLS('credentials', { user: creds.user, pass: creds.pass });
+      }
+    } catch(e) {
+      const cached = loadLS('credentials', null);
+      if (cached) { ADMIN_USER = cached.user; ADMIN_PASS = cached.pass; }
+    }
+
+    // Productos
+    try {
+      const fbProducts = await withTimeout(fbGet('products'), 4000);
+      if (fbProducts) {
+        state.products = Object.values(fbProducts);
+        saveLS('products_cache', state.products);
+      } else {
+        // Primera vez: subir productos por defecto
+        state.products = DEFAULT_PRODUCTS;
+        const obj = {};
+        DEFAULT_PRODUCTS.forEach(p => { obj[p.id] = p; });
+        fbSet('products', obj).catch(() => {});
+        saveLS('products_cache', state.products);
+      }
+    } catch(e) {
+      state.products = loadLS('products_cache', DEFAULT_PRODUCTS);
+    }
+
+    // Ventas
+    try {
+      const fbSales = await withTimeout(fbGet('sales'), 4000);
+      state.sales = fbSales
+        ? Object.values(fbSales).sort((a, b) => (b.invoiceNum || 0) - (a.invoiceNum || 0))
+        : loadLS('sales_cache', []);
+      saveLS('sales_cache', state.sales);
+    } catch(e) {
+      state.sales = loadLS('sales_cache', []);
+    }
+
+    // Contador de facturas
+    try {
+      const counter = await withTimeout(fbGet('config/invoiceCounter'), 4000);
+      state.invoiceCounter = counter || loadLS('invoiceCounter_cache', 1);
+    } catch(e) {
+      state.invoiceCounter = loadLS('invoiceCounter_cache', 1);
+    }
+
+    updateOnlineIndicator(true);
+    listenRealtime();
+
+  } catch(e) {
+    // Modo offline total
+    console.warn('Firebase no disponible, usando caché local:', e.message);
+    state.products       = loadLS('products_cache', DEFAULT_PRODUCTS);
+    state.sales          = loadLS('sales_cache', []);
+    state.invoiceCounter = loadLS('invoiceCounter_cache', 1);
+    updateOnlineIndicator(false);
+    showToast('📦 Cargando datos locales (sin internet)', 'warning');
+  } finally {
+    // SIEMPRE se ejecuta — garantiza que la pantalla de carga desaparece
+    hideLoading();
+    renderProducts();
+    renderInventory();
+    renderHistory();
+    buildCategoryChips();
+    updateInvoiceNum();
+    startClock();
+    updateDashboard();
+    loadConfigSection();
+  }
+}
+
 function listenRealtime() {
   onValue(ref(db, 'products'), snap => {
     if (!snap.exists()) return;
     state.products = Object.values(snap.val());
+    saveLS('products_cache', state.products);
     renderProducts(); renderInventory(); buildCategoryChips(); updateDashboard();
   });
   onValue(ref(db, 'sales'), snap => {
     state.sales = snap.exists()
       ? Object.values(snap.val()).sort((a, b) => (b.invoiceNum || 0) - (a.invoiceNum || 0))
       : [];
+    saveLS('sales_cache', state.sales);
     renderHistory(); updateDashboard();
   });
 }
@@ -226,9 +319,10 @@ function switchSection(name, btn) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   document.getElementById('sidebar').classList.remove('open');
-  if (name === 'admin')      updateDashboard();
-  if (name === 'historial')  renderHistory();
-  if (name === 'inventario') renderInventory();
+  if (name === 'admin')         updateDashboard();
+  if (name === 'historial')     renderHistory();
+  if (name === 'inventario')    renderInventory();
+  if (name === 'configuracion') loadConfigSection();
 }
 
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
@@ -289,7 +383,7 @@ function renderProducts(list) {
 function filterProducts() { buildCategoryChips(); renderProducts(); }
 
 // ══════════════════════════════════════════
-//  MODAL CANTIDAD
+//  MODAL CANTIDAD (kg / lb)
 // ══════════════════════════════════════════
 const KG_TO_LB = 2.20462;
 const LB_TO_KG = 1 / KG_TO_LB;
@@ -316,18 +410,19 @@ function selectSaleUnit(unit, silent) {
   document.getElementById('unitBtnLb').classList.toggle('active', unit === 'lb');
   const p = state.products.find(x => x.id === qtyModalState.productId);
   if (!p) return;
-  document.getElementById('qtyLabel').textContent = unit === 'kg' ? 'Cantidad en Kilos (kg)' : 'Cantidad en Libras (lb)';
+  document.getElementById('qtyLabel').textContent =
+    unit === 'kg' ? 'Cantidad en Kilos (kg)' : 'Cantidad en Libras (lb)';
   const info = document.getElementById('unitInfo');
   if (unit !== p.unit) {
-    if (unit === 'lb') info.textContent = `1 lb = 0.454 kg · Precio por libra: ${fmt(Math.round(p.price * LB_TO_KG))}`;
-    else               info.textContent = `1 kg = 2.205 lb · Precio por kilo: ${fmt(Math.round(p.price * KG_TO_LB))}`;
+    if (unit === 'lb') info.textContent = `1 lb = 0.454 kg · Precio/lb: ${fmt(Math.round(p.price * LB_TO_KG))}`;
+    else               info.textContent = `1 kg = 2.205 lb · Precio/kg: ${fmt(Math.round(p.price * KG_TO_LB))}`;
   } else {
     info.textContent = `Precio base: ${fmt(p.price)}/${p.unit}`;
   }
   if (!silent) updatePricePreview();
 }
 
-function getSalePrice(product) {
+function getSalePriceModal(product) {
   if (qtyModalState.saleUnit === qtyModalState.baseUnit) return product.price;
   if (qtyModalState.saleUnit === 'lb' && qtyModalState.baseUnit === 'kg') return product.price * LB_TO_KG;
   if (qtyModalState.saleUnit === 'kg' && qtyModalState.baseUnit === 'lb') return product.price * KG_TO_LB;
@@ -339,7 +434,7 @@ function updatePricePreview() {
   const p    = state.products.find(x => x.id === qtyModalState.productId);
   const prev = document.getElementById('pricePreview');
   if (!p || qty <= 0) { prev.textContent = ''; return; }
-  const unitPrice = getSalePrice(p);
+  const unitPrice = getSalePriceModal(p);
   prev.textContent = `${qty} ${qtyModalState.saleUnit} × ${fmt(Math.round(unitPrice))}/${qtyModalState.saleUnit} = ${fmt(Math.round(unitPrice * qty))}`;
 }
 
@@ -380,13 +475,13 @@ function getSalePriceFor(product, saleUnit) {
 function addToCart(productId, qtySaleUnit, saleUnit) {
   const p = state.products.find(x => x.id === productId);
   if (!p) return;
-  const qtyBase    = +getQtyInBaseUnitFor(qtySaleUnit, saleUnit, p.unit).toFixed(4);
-  const unitPrice  = getSalePriceFor(p, saleUnit);
+  const qtyBase     = +getQtyInBaseUnitFor(qtySaleUnit, saleUnit, p.unit).toFixed(4);
+  const unitPrice   = getSalePriceFor(p, saleUnit);
   const displayUnit = saleUnit || p.unit;
   if (p.stock < qtyBase) {
     showToast(`⚠ Stock insuficiente: ${p.stock} ${p.unit}`, 'warning'); return;
   }
-  const key = productId + '_' + displayUnit;
+  const key      = productId + '_' + displayUnit;
   const existing = state.cart.find(c => c.cartKey === key);
   if (existing) {
     const newBase = +(existing.qtyBase + qtyBase).toFixed(4);
@@ -505,13 +600,12 @@ function selectPayment(btn) {
 }
 
 // ══════════════════════════════════════════
-//  CONFIRMAR VENTA
+//  CONFIRMAR VENTA (online)
 // ══════════════════════════════════════════
 async function confirmSale() {
   if (!state.cart.length) { showToast('El carrito está vacío', 'warning'); return; }
   const { sub, disc, total } = calcCartTotals();
   const invoiceNum = state.invoiceCounter;
-
   const sale = {
     id: uid(),
     invoice: '#' + String(invoiceNum).padStart(4, '0'),
@@ -521,7 +615,6 @@ async function confirmSale() {
     subtotal: sub, discount: disc, discountPct: state.discount,
     total, method: state.paymentMethod,
   };
-
   showLoading('Guardando venta…');
   try {
     await fbSet('sales/' + sale.id, sale);
@@ -538,18 +631,56 @@ async function confirmSale() {
     await fbUpdate('/', updates);
     state.invoiceCounter = invoiceNum + 1;
     state.sales.unshift(sale);
-    hideLoading();
+    saveLS('sales_cache', state.sales);
+    saveLS('invoiceCounter_cache', state.invoiceCounter);
     playBeep();
-    showToast(`✅ Venta confirmada – ${fmt(total)}`);
+    showToast(`✅ Venta confirmada – ${fmt(Math.round(total))}`);
     state.cart = []; state.discount = 0;
     renderCart(); updateInvoiceNum(); renderProducts(); checkLowStock();
     showInvoiceModal(sale);
   } catch(e) {
-    hideLoading();
     showToast('❌ Error guardando venta. Verifica tu conexión.', 'error');
     console.error(e);
+  } finally {
+    hideLoading();
   }
 }
+
+// ══════════════════════════════════════════
+//  CONFIRMAR VENTA (offline)
+// ══════════════════════════════════════════
+async function confirmSaleOffline() {
+  if (!state.cart.length) { showToast('El carrito está vacío', 'warning'); return; }
+  const { sub, disc, total } = calcCartTotals();
+  const invoiceNum = state.invoiceCounter;
+  const sale = {
+    id: uid(),
+    invoice: '#' + String(invoiceNum).padStart(4, '0'),
+    invoiceNum, date: now(),
+    items: state.cart.map(c => ({ ...c })),
+    subtotal: sub, discount: disc, discountPct: state.discount,
+    total, method: state.paymentMethod, _pendingSync: true,
+  };
+  state.cart.forEach(item => {
+    const p = state.products.find(x => x.id === item.productId);
+    if (p) p.stock = Math.max(0, +(p.stock - (item.qtyBase ?? item.qty)).toFixed(4));
+  });
+  state.invoiceCounter = invoiceNum + 1;
+  state.sales.unshift(sale);
+  queueSaleOffline(sale);
+  saveLS('invoiceCounter_cache', state.invoiceCounter);
+  saveLS('products_cache', state.products);
+  playBeep();
+  showToast(`✅ Venta guardada offline – ${fmt(Math.round(total))}`, 'warning');
+  state.cart = []; state.discount = 0;
+  renderCart(); updateInvoiceNum(); renderProducts(); checkLowStock();
+  showInvoiceModal(sale);
+}
+
+window._confirmSaleWithOffline = async function() {
+  if (navigator.onLine) { await confirmSale(); }
+  else { await confirmSaleOffline(); }
+};
 
 function updateInvoiceNum() {
   document.getElementById('invoiceNum').textContent = '#' + String(state.invoiceCounter).padStart(4, '0');
@@ -592,7 +723,9 @@ function showInvoiceModal(sale) {
       <div class="tkt-items">${itemLines}</div>
       <div class="tkt-line"></div>
       <div class="tkt-row"><span>Subtotal</span><span>${fmt(Math.round(sale.subtotal))}</span></div>
-      ${sale.discountPct > 0 ? `<div class="tkt-row"><span>Descuento (${sale.discountPct}%)</span><span>-${fmt(Math.round(sale.discount))}</span></div>` : ''}
+      ${sale.discountPct > 0
+        ? `<div class="tkt-row"><span>Descuento (${sale.discountPct}%)</span><span>-${fmt(Math.round(sale.discount))}</span></div>`
+        : ''}
       <div class="tkt-line tkt-line-double"></div>
       <div class="tkt-row tkt-total"><span>TOTAL</span><span>${fmt(Math.round(sale.total))}</span></div>
       <div class="tkt-row"><span>Pago</span><span>${methodLabel[sale.method] || sale.method}</span></div>
@@ -700,12 +833,13 @@ async function saveProduct() {
       await fbSet('products/' + np.id, np);
       showToast('Producto agregado ✅');
     }
-    hideLoading();
+    saveLS('products_cache', state.products);
     closeProductModal(); renderInventory(); renderProducts(); buildCategoryChips();
   } catch(e) {
-    hideLoading();
     showToast('❌ Error guardando. Verifica conexión.', 'error');
     console.error(e);
+  } finally {
+    hideLoading();
   }
 }
 
@@ -715,10 +849,13 @@ async function deleteProduct(id) {
   try {
     await remove(ref(db, 'products/' + id));
     state.products = state.products.filter(p => p.id !== id);
-    hideLoading(); renderInventory(); renderProducts(); buildCategoryChips();
+    saveLS('products_cache', state.products);
+    renderInventory(); renderProducts(); buildCategoryChips();
     showToast('Producto eliminado');
   } catch(e) {
-    hideLoading(); showToast('❌ Error eliminando. Verifica conexión.', 'error');
+    showToast('❌ Error eliminando. Verifica conexión.', 'error');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -747,21 +884,26 @@ function renderHistory() {
     const card = document.createElement('div');
     card.className = 'history-card';
     const itemsStr = sale.items.map(i => `${i.emoji} ${i.name} ×${i.qty}`).join(', ');
+    const pendingBadge = sale._pendingSync
+      ? '<span style="background:#fff3cd;color:#856404;font-size:.72rem;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:.4rem">⏳ Pendiente sync</span>'
+      : '';
     card.innerHTML = `
       <div class="hist-card-header">
         <div>
-          <span class="hist-invoice">${sale.invoice}</span>
+          <span class="hist-invoice">${sale.invoice}</span>${pendingBadge}
           <span class="hist-date"> · ${sale.date}</span>
         </div>
         <div style="display:flex;align-items:center;gap:.5rem">
           <span class="hist-method">${sale.method}</span>
-          <span class="hist-total">${fmt(sale.total)}</span>
+          <span class="hist-total">${fmt(Math.round(sale.total))}</span>
           <button style="font-size:.8rem;padding:.2rem .5rem;border-radius:6px;background:var(--green-100);color:var(--green-700);font-weight:700"
             onclick='showInvoiceModal(${JSON.stringify(sale)})'>Ver</button>
         </div>
       </div>
       <div class="hist-items">${itemsStr}</div>
-      ${sale.discountPct > 0 ? `<div style="font-size:.78rem;color:var(--accent);margin-top:.25rem">Descuento ${sale.discountPct}% (-${fmt(sale.discount)})</div>` : ''}
+      ${sale.discountPct > 0
+        ? `<div style="font-size:.78rem;color:var(--accent);margin-top:.25rem">Descuento ${sale.discountPct}% (-${fmt(Math.round(sale.discount))})</div>`
+        : ''}
     `;
     container.appendChild(card);
   });
@@ -789,7 +931,7 @@ function updateDashboard() {
   const todaySales = state.sales.filter(s => s.date.includes(todayStr));
   const todayTotal = todaySales.reduce((a, s) => a + s.total, 0);
   const lowCount   = state.products.filter(p => p.stock <= (p.minStock || LOW_STOCK_THRESHOLD)).length;
-  document.getElementById('statIngresos').textContent  = fmt(todayTotal);
+  document.getElementById('statIngresos').textContent  = fmt(Math.round(todayTotal));
   document.getElementById('statVentas').textContent    = todaySales.length;
   document.getElementById('statProductos').textContent = state.products.length;
   document.getElementById('statBajo').textContent      = lowCount;
@@ -823,7 +965,7 @@ function updateDashboard() {
     },
     options: { responsive: true, plugins: {
       legend: { position: 'bottom' },
-      tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) } }
+      tooltip: { callbacks: { label: ctx => ' ' + fmt(Math.round(ctx.raw)) } }
     }}
   });
 }
@@ -835,10 +977,14 @@ async function resetSales() {
     await remove(ref(db, 'sales'));
     await fbSet('config/invoiceCounter', 1);
     state.sales = []; state.invoiceCounter = 1;
-    hideLoading(); updateDashboard(); updateInvoiceNum(); renderHistory();
+    saveLS('sales_cache', []); saveLS('invoiceCounter_cache', 1);
+    savePendingSales([]);
+    updateDashboard(); updateInvoiceNum(); renderHistory();
     showToast('Ventas reiniciadas');
   } catch(e) {
-    hideLoading(); showToast('❌ Error. Verifica conexión.', 'error');
+    showToast('❌ Error. Verifica conexión.', 'error');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -937,15 +1083,19 @@ async function saveCredentials() {
   try {
     await fbSet('config/credentials', { user: newUser, pass: newPass });
     ADMIN_USER = newUser; ADMIN_PASS = newPass;
-    const ts = now(); saveLS('lastCredChange', ts);
+    const ts = now();
+    saveLS('credentials', { user: newUser, pass: newPass });
+    saveLS('lastCredChange', ts);
     document.getElementById('sessionUser').textContent       = newUser;
     document.getElementById('sessionLastChange').textContent = ts;
     ['currentUser','currentPass','newUser','newPass','confirmPass'].forEach(id => {
       document.getElementById(id).value = '';
     });
-    hideLoading(); showToast('✅ Credenciales actualizadas correctamente');
+    showToast('✅ Credenciales actualizadas correctamente');
   } catch(e) {
-    hideLoading(); errEl.textContent = '❌ Error guardando. Verifica conexión.';
+    errEl.textContent = '❌ Error guardando. Verifica conexión.';
+  } finally {
+    hideLoading();
   }
 }
 
@@ -971,9 +1121,36 @@ function getBizInfo() {
 // ══════════════════════════════════════════
 //  MODO OFFLINE
 // ══════════════════════════════════════════
+function getPendingSales()        { return loadLS('pendingSales', []); }
+function savePendingSales(list)   { saveLS('pendingSales', list); }
 
-function getPendingSales() { return loadLS('pendingSales', []); }
-function savePendingSales(list) { saveLS('pendingSales', list); }
+function queueSaleOffline(sale) {
+  const pending = getPendingSales();
+  pending.push(sale);
+  savePendingSales(pending);
+}
+
+async function syncPendingSales() {
+  const pending = getPendingSales().filter(s => s._pendingSync);
+  if (!pending.length) return;
+  showToast(`🔄 Sincronizando ${pending.length} venta(s) pendiente(s)…`);
+  const synced = [];
+  for (const sale of pending) {
+    try {
+      const { _pendingSync, ...cleanSale } = sale;
+      await fbSet('sales/' + cleanSale.id, cleanSale);
+      synced.push(sale.id);
+    } catch(e) { break; }
+  }
+  if (synced.length) {
+    savePendingSales(getPendingSales().filter(s => !synced.includes(s.id)));
+    // Marcar como sincronizadas en state también
+    state.sales.forEach(s => { if (synced.includes(s.id)) delete s._pendingSync; });
+    saveLS('sales_cache', state.sales);
+    renderHistory();
+    showToast(`✅ ${synced.length} venta(s) sincronizadas`);
+  }
+}
 
 function updateOnlineIndicator(online) {
   let el = document.getElementById('onlineIndicator');
@@ -993,83 +1170,30 @@ function updateOnlineIndicator(online) {
     el.innerHTML = '🟢 En línea';
   } else {
     el.style.background = '#fff3cd'; el.style.color = '#856404';
-    el.innerHTML = '🟡 Sin internet – modo offline';
+    el.innerHTML = '🟡 Sin internet';
   }
 }
-
-function queueSaleOffline(sale) {
-  const pending = getPendingSales();
-  pending.push(sale);
-  savePendingSales(pending);
-  saveLS('products_cache', state.products);
-  saveLS('sales_cache', state.sales);
-  saveLS('invoiceCounter_cache', state.invoiceCounter);
-}
-
-async function syncPendingSales() {
-  const pending = getPendingSales().filter(s => !s._isInit);
-  if (!pending.length) return;
-  showToast(`🔄 Sincronizando ${pending.length} venta(s) pendiente(s)…`);
-  const synced = [];
-  for (const sale of pending) {
-    try {
-      const { _pendingSync, ...cleanSale } = sale;
-      await fbSet('sales/' + cleanSale.id, cleanSale);
-      const updates = {};
-      updates['config/invoiceCounter'] = state.invoiceCounter;
-      await fbUpdate('/', updates);
-      synced.push(sale.id);
-    } catch(e) { break; }
-  }
-  if (synced.length) {
-    savePendingSales(getPendingSales().filter(s => !synced.includes(s.id)));
-    showToast(`✅ ${synced.length} venta(s) sincronizadas con Firebase`);
-  }
-}
-
-async function confirmSaleOffline() {
-  if (!state.cart.length) { showToast('El carrito está vacío', 'warning'); return; }
-  const { sub, disc, total } = calcCartTotals();
-  const invoiceNum = state.invoiceCounter;
-  const sale = {
-    id: uid(),
-    invoice: '#' + String(invoiceNum).padStart(4, '0'),
-    invoiceNum, date: now(),
-    items: state.cart.map(c => ({ ...c })),
-    subtotal: sub, discount: disc, discountPct: state.discount,
-    total, method: state.paymentMethod, _pendingSync: true,
-  };
-  state.cart.forEach(item => {
-    const p = state.products.find(x => x.id === item.productId);
-    if (p) p.stock = Math.max(0, +(p.stock - (item.qtyBase ?? item.qty)).toFixed(4));
-  });
-  state.invoiceCounter = invoiceNum + 1;
-  state.sales.unshift(sale);
-  queueSaleOffline(sale);
-  playBeep();
-  showToast(`✅ Venta guardada offline – ${fmt(total)}`, 'warning');
-  state.cart = []; state.discount = 0;
-  renderCart(); updateInvoiceNum(); renderProducts(); checkLowStock();
-  showInvoiceModal(sale);
-}
-
-window._confirmSaleWithOffline = async function() {
-  if (navigator.onLine) { await confirmSale(); }
-  else { await confirmSaleOffline(); }
-};
 
 window.addEventListener('online', async () => {
   updateOnlineIndicator(true);
-  showToast('🌐 Conexión restaurada');
+  showToast('🌐 Conexión restaurada – sincronizando…');
   await syncPendingSales();
   try {
-    const fbProducts = await fbGet('products');
-    if (fbProducts) { state.products = Object.values(fbProducts); saveLS('products_cache', state.products); renderProducts(); renderInventory(); buildCategoryChips(); }
+    const fbProducts = await withTimeout(fbGet('products'), 5000);
+    if (fbProducts) {
+      state.products = Object.values(fbProducts);
+      saveLS('products_cache', state.products);
+      renderProducts(); renderInventory(); buildCategoryChips();
+    }
     const fbSales = await withTimeout(fbGet('sales'), 5000);
-    if (fbSales) { state.sales = Object.values(fbSales).sort((a,b)=>(b.invoiceNum||0)-(a.invoiceNum||0)); saveLS('sales_cache', state.sales); renderHistory(); updateDashboard(); }
+    if (fbSales) {
+      state.sales = Object.values(fbSales).sort((a,b)=>(b.invoiceNum||0)-(a.invoiceNum||0));
+      saveLS('sales_cache', state.sales);
+      renderHistory(); updateDashboard();
+    }
     const counter = await withTimeout(fbGet('config/invoiceCounter'), 5000);
     if (counter) { state.invoiceCounter = counter; updateInvoiceNum(); }
-  } catch(e) {}
+  } catch(e) { console.warn('Error al reconectar con Firebase:', e); }
 });
 
 window.addEventListener('offline', () => {
@@ -1077,57 +1201,8 @@ window.addEventListener('offline', () => {
   showToast('⚠ Sin internet – ventas se guardan localmente', 'warning');
 });
 
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
-  ]);
-}
-
-async function initWithOfflineFallback() {
-  showLoading('Cargando datos…');
-  try {
-    if (!navigator.onLine) throw new Error('offline');
-    const creds = await withTimeout(fbGet('config/credentials'), 5000);
-    if (creds) { ADMIN_USER = creds.user; ADMIN_PASS = creds.pass; saveLS('credentials', {user: creds.user, pass: creds.pass}); }
-    const fbProducts = await withTimeout(fbGet('products'), 5000);
-    if (fbProducts) {
-      state.products = Object.values(fbProducts);
-      saveLS('products_cache', state.products);
-    } else if (!navigator.onLine) {
-      state.products = loadLS('products_cache', DEFAULT_PRODUCTS);
-    } else {
-      state.products = DEFAULT_PRODUCTS;
-      const obj = {}; DEFAULT_PRODUCTS.forEach(p => { obj[p.id] = p; });
-      await fbSet('products', obj);
-      saveLS('products_cache', state.products);
-    }
-    const fbSales = await withTimeout(fbGet('sales'), 5000);
-    state.sales = fbSales
-      ? Object.values(fbSales).sort((a,b)=>(b.invoiceNum||0)-(a.invoiceNum||0))
-      : loadLS('sales_cache', []);
-    saveLS('sales_cache', state.sales);
-    const counter = await withTimeout(fbGet('config/invoiceCounter'), 5000);
-    state.invoiceCounter = counter || loadLS('invoiceCounter_cache', 1);
-    updateOnlineIndicator(true);
-    listenRealtime();
-  } catch(e) {
-    console.warn('Firebase no disponible, usando caché local');
-    state.products     = loadLS('products_cache', DEFAULT_PRODUCTS);
-    state.sales        = loadLS('sales_cache', []);
-    state.invoiceCounter = loadLS('invoiceCounter_cache', 1);
-    updateOnlineIndicator(false);
-    showToast('📦 Cargando datos locales (sin internet)', 'warning');
-  }
-  hideLoading();
-  renderProducts(); renderInventory(); renderHistory();
-  buildCategoryChips(); updateInvoiceNum();
-  startClock(); updateDashboard(); loadConfigSection();
-}
-
 // ══════════════════════════════════════════
-//  EXPONER FUNCIONES AL SCOPE GLOBAL
-//  (necesario porque este archivo es un módulo ES)
+//  EXPONER AL SCOPE GLOBAL (módulo ES)
 // ══════════════════════════════════════════
 Object.assign(window, {
   doLogin, doLogout,
@@ -1143,4 +1218,5 @@ Object.assign(window, {
   resetSales,
   calcNum, calcOp, calcClear, calcDel, calcEquals,
   saveCredentials, saveBizInfo,
+  loadConfigSection,
 });
