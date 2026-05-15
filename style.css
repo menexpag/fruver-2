@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   FRUVER – POS · style.css
+   Fruver – POS · style.css
    ═══════════════════════════════════════════ */
 
 /* ── Variables ── */
@@ -614,6 +614,49 @@ h1,h2,h3 { font-family: 'DM Sans', sans-serif; font-weight: 700; }
   0%, 100% { transform: scale(1); }
   50%       { transform: scale(1.05); }
 }
+
+/* ══════════════ CONFIGURACIÓN ══════════════ */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+.config-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.config-card-header {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1.1rem 1.4rem;
+  background: var(--surface2);
+  border-bottom: 1.5px solid var(--border);
+}
+.config-icon { font-size: 1.8rem; }
+.config-card-header h3 { font-size: .95rem; margin-bottom: .15rem; }
+.config-card-header p  { font-size: .78rem; color: var(--text-muted); }
+.config-body {
+  padding: 1.25rem 1.4rem;
+  display: flex; flex-direction: column; gap: .85rem;
+}
+.config-divider {
+  border: none; border-top: 1.5px dashed var(--border);
+  margin: .25rem 0;
+}
+.btn-full { width: 100%; padding: .7rem; font-size: .9rem; }
+.cred-error {
+  color: var(--danger); font-size: .82rem; min-height: 1rem;
+}
+.session-info { display: flex; flex-direction: column; gap: .6rem; }
+.session-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .88rem; padding: .5rem .75rem;
+  background: var(--surface2); border-radius: var(--radius-sm);
+}
+.session-row span { color: var(--text-muted); }
 
 /* ══════════════ UNIT SELECTOR ══════════════ */
 .unit-selector-wrap {
