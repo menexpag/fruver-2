@@ -167,44 +167,7 @@ function doLogout() {
 //  INIT
 // ══════════════════════════════════════════
 async function init() {
-  showLoading('Cargando datos…');
-  try {
-    const fbProducts = await fbGet('products');
-    if (fbProducts) {
-      state.products = Object.values(fbProducts);
-    } else {
-      state.products = DEFAULT_PRODUCTS;
-      const obj = {};
-      DEFAULT_PRODUCTS.forEach(p => { obj[p.id] = p; });
-      await fbSet('products', obj);
-    }
-
-    const fbSales = await fbGet('sales');
-    state.sales = fbSales
-      ? Object.values(fbSales).sort((a, b) => (b.invoiceNum || 0) - (a.invoiceNum || 0))
-      : [];
-
-    const counter = await fbGet('config/invoiceCounter');
-    state.invoiceCounter = counter || 1;
-
-    const creds = await fbGet('config/credentials');
-    if (creds) { ADMIN_USER = creds.user; ADMIN_PASS = creds.pass; }
-
-    hideLoading();
-    renderProducts();
-    renderInventory();
-    renderHistory();
-    buildCategoryChips();
-    updateInvoiceNum();
-    startClock();
-    updateDashboard();
-    loadConfigSection();
-    listenRealtime();
-  } catch(e) {
-    hideLoading();
-    showToast('❌ Error cargando datos. Verifica tu conexión.', 'error');
-    console.error(e);
-  }
+  await initWithOfflineFallback();
 }
 
 function listenRealtime() {
@@ -987,6 +950,155 @@ function getBizInfo() {
     name: 'Fruver', slogan: 'Tu mercado de confianza',
     phone: '', address: '', footer: '¡Gracias por su compra!'
   });
+}
+
+// ══════════════════════════════════════════
+//  MODO OFFLINE
+// ══════════════════════════════════════════
+
+function getPendingSales() { return loadLS('pendingSales', []); }
+function savePendingSales(list) { saveLS('pendingSales', list); }
+
+function updateOnlineIndicator(online) {
+  let el = document.getElementById('onlineIndicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'onlineIndicator';
+    el.style.cssText = `
+      position:fixed; top:.75rem; right:1rem; z-index:7000;
+      padding:.3rem .8rem; border-radius:20px; font-size:.75rem;
+      font-weight:700; display:flex; align-items:center; gap:.4rem;
+      box-shadow:0 2px 8px rgba(0,0,0,.2); transition:all .3s ease;
+    `;
+    document.body.appendChild(el);
+  }
+  if (online) {
+    el.style.background = '#d8f3dc'; el.style.color = '#2d6a4f';
+    el.innerHTML = '🟢 En línea';
+  } else {
+    el.style.background = '#fff3cd'; el.style.color = '#856404';
+    el.innerHTML = '🟡 Sin internet – modo offline';
+  }
+}
+
+function queueSaleOffline(sale) {
+  const pending = getPendingSales();
+  pending.push(sale);
+  savePendingSales(pending);
+  saveLS('products_cache', state.products);
+  saveLS('sales_cache', state.sales);
+  saveLS('invoiceCounter_cache', state.invoiceCounter);
+}
+
+async function syncPendingSales() {
+  const pending = getPendingSales().filter(s => !s._isInit);
+  if (!pending.length) return;
+  showToast(`🔄 Sincronizando ${pending.length} venta(s) pendiente(s)…`);
+  const synced = [];
+  for (const sale of pending) {
+    try {
+      const { _pendingSync, ...cleanSale } = sale;
+      await fbSet('sales/' + cleanSale.id, cleanSale);
+      const updates = {};
+      updates['config/invoiceCounter'] = state.invoiceCounter;
+      await fbUpdate('/', updates);
+      synced.push(sale.id);
+    } catch(e) { break; }
+  }
+  if (synced.length) {
+    savePendingSales(getPendingSales().filter(s => !synced.includes(s.id)));
+    showToast(`✅ ${synced.length} venta(s) sincronizadas con Firebase`);
+  }
+}
+
+async function confirmSaleOffline() {
+  if (!state.cart.length) { showToast('El carrito está vacío', 'warning'); return; }
+  const { sub, disc, total } = calcCartTotals();
+  const invoiceNum = state.invoiceCounter;
+  const sale = {
+    id: uid(),
+    invoice: '#' + String(invoiceNum).padStart(4, '0'),
+    invoiceNum, date: now(),
+    items: state.cart.map(c => ({ ...c })),
+    subtotal: sub, discount: disc, discountPct: state.discount,
+    total, method: state.paymentMethod, _pendingSync: true,
+  };
+  state.cart.forEach(item => {
+    const p = state.products.find(x => x.id === item.productId);
+    if (p) p.stock = Math.max(0, +(p.stock - (item.qtyBase ?? item.qty)).toFixed(4));
+  });
+  state.invoiceCounter = invoiceNum + 1;
+  state.sales.unshift(sale);
+  queueSaleOffline(sale);
+  playBeep();
+  showToast(`✅ Venta guardada offline – ${fmt(total)}`, 'warning');
+  state.cart = []; state.discount = 0;
+  renderCart(); updateInvoiceNum(); renderProducts(); checkLowStock();
+  showInvoiceModal(sale);
+}
+
+window._confirmSaleWithOffline = async function() {
+  if (navigator.onLine) { await confirmSale(); }
+  else { await confirmSaleOffline(); }
+};
+
+window.addEventListener('online', async () => {
+  updateOnlineIndicator(true);
+  showToast('🌐 Conexión restaurada');
+  await syncPendingSales();
+  try {
+    const fbProducts = await fbGet('products');
+    if (fbProducts) { state.products = Object.values(fbProducts); saveLS('products_cache', state.products); renderProducts(); renderInventory(); buildCategoryChips(); }
+    const fbSales = await fbGet('sales');
+    if (fbSales) { state.sales = Object.values(fbSales).sort((a,b)=>(b.invoiceNum||0)-(a.invoiceNum||0)); saveLS('sales_cache', state.sales); renderHistory(); updateDashboard(); }
+    const counter = await fbGet('config/invoiceCounter');
+    if (counter) { state.invoiceCounter = counter; updateInvoiceNum(); }
+  } catch(e) {}
+});
+
+window.addEventListener('offline', () => {
+  updateOnlineIndicator(false);
+  showToast('⚠ Sin internet – ventas se guardan localmente', 'warning');
+});
+
+async function initWithOfflineFallback() {
+  showLoading('Cargando datos…');
+  try {
+    const creds = await fbGet('config/credentials');
+    if (creds) { ADMIN_USER = creds.user; ADMIN_PASS = creds.pass; }
+    const fbProducts = await fbGet('products');
+    if (fbProducts) {
+      state.products = Object.values(fbProducts);
+      saveLS('products_cache', state.products);
+    } else if (!navigator.onLine) {
+      state.products = loadLS('products_cache', DEFAULT_PRODUCTS);
+    } else {
+      state.products = DEFAULT_PRODUCTS;
+      const obj = {}; DEFAULT_PRODUCTS.forEach(p => { obj[p.id] = p; });
+      await fbSet('products', obj);
+      saveLS('products_cache', state.products);
+    }
+    const fbSales = await fbGet('sales');
+    state.sales = fbSales
+      ? Object.values(fbSales).sort((a,b)=>(b.invoiceNum||0)-(a.invoiceNum||0))
+      : loadLS('sales_cache', []);
+    saveLS('sales_cache', state.sales);
+    const counter = await fbGet('config/invoiceCounter');
+    state.invoiceCounter = counter || loadLS('invoiceCounter_cache', 1);
+    updateOnlineIndicator(true);
+    listenRealtime();
+  } catch(e) {
+    console.warn('Firebase no disponible, usando caché local');
+    state.products     = loadLS('products_cache', DEFAULT_PRODUCTS);
+    state.sales        = loadLS('sales_cache', []);
+    state.invoiceCounter = loadLS('invoiceCounter_cache', 1);
+    updateOnlineIndicator(false);
+    showToast('📦 Cargando datos locales (sin internet)', 'warning');
+  }
+  hideLoading();
+  renderProducts(); renderInventory(); renderHistory();
+  buildCategoryChips(); updateInvoiceNum();
+  startClock(); updateDashboard(); loadConfigSection();
 }
 
 // ══════════════════════════════════════════
