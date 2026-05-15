@@ -615,6 +615,46 @@ h1,h2,h3 { font-family: 'DM Sans', sans-serif; font-weight: 700; }
   50%       { transform: scale(1.05); }
 }
 
+/* ══════════════ UNIT SELECTOR ══════════════ */
+.unit-selector-wrap {
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .75rem 1rem;
+  margin-bottom: .25rem;
+}
+.unit-selector-label {
+  font-size: .8rem; font-weight: 700; color: var(--text-muted);
+  display: block; margin-bottom: .5rem;
+}
+.unit-toggle {
+  display: flex; gap: .5rem;
+}
+.unit-btn {
+  flex: 1; padding: .55rem; border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  font-size: .85rem; font-weight: 700;
+  transition: all var(--transition);
+}
+.unit-btn.active {
+  background: var(--green-500); color: #fff; border-color: var(--green-500);
+}
+.unit-btn:hover:not(.active) { border-color: var(--green-400); color: var(--text); }
+.unit-info {
+  font-size: .78rem; color: var(--text-muted); margin-top: .5rem;
+}
+.price-preview {
+  margin-top: .65rem;
+  background: var(--green-50);
+  border: 1.5px solid var(--green-100);
+  border-radius: var(--radius-sm);
+  padding: .55rem .9rem;
+  font-size: .88rem; font-weight: 700; color: var(--green-700);
+  min-height: 2.2rem;
+  transition: all var(--transition);
+}
+
 /* ══════════════ PRINT STYLES ══════════════ */
 @media print {
   body > *:not(#invoiceModal) { display: none !important; }
