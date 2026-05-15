@@ -1065,9 +1065,9 @@ window.addEventListener('online', async () => {
   try {
     const fbProducts = await fbGet('products');
     if (fbProducts) { state.products = Object.values(fbProducts); saveLS('products_cache', state.products); renderProducts(); renderInventory(); buildCategoryChips(); }
-    const fbSales = await fbGet('sales');
+    const fbSales = await withTimeout(fbGet('sales'), 5000);
     if (fbSales) { state.sales = Object.values(fbSales).sort((a,b)=>(b.invoiceNum||0)-(a.invoiceNum||0)); saveLS('sales_cache', state.sales); renderHistory(); updateDashboard(); }
-    const counter = await fbGet('config/invoiceCounter');
+    const counter = await withTimeout(fbGet('config/invoiceCounter'), 5000);
     if (counter) { state.invoiceCounter = counter; updateInvoiceNum(); }
   } catch(e) {}
 });
@@ -1077,12 +1077,20 @@ window.addEventListener('offline', () => {
   showToast('⚠ Sin internet – ventas se guardan localmente', 'warning');
 });
 
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+}
+
 async function initWithOfflineFallback() {
   showLoading('Cargando datos…');
   try {
-    const creds = await fbGet('config/credentials');
-    if (creds) { ADMIN_USER = creds.user; ADMIN_PASS = creds.pass; }
-    const fbProducts = await fbGet('products');
+    if (!navigator.onLine) throw new Error('offline');
+    const creds = await withTimeout(fbGet('config/credentials'), 5000);
+    if (creds) { ADMIN_USER = creds.user; ADMIN_PASS = creds.pass; saveLS('credentials', {user: creds.user, pass: creds.pass}); }
+    const fbProducts = await withTimeout(fbGet('products'), 5000);
     if (fbProducts) {
       state.products = Object.values(fbProducts);
       saveLS('products_cache', state.products);
@@ -1094,12 +1102,12 @@ async function initWithOfflineFallback() {
       await fbSet('products', obj);
       saveLS('products_cache', state.products);
     }
-    const fbSales = await fbGet('sales');
+    const fbSales = await withTimeout(fbGet('sales'), 5000);
     state.sales = fbSales
       ? Object.values(fbSales).sort((a,b)=>(b.invoiceNum||0)-(a.invoiceNum||0))
       : loadLS('sales_cache', []);
     saveLS('sales_cache', state.sales);
-    const counter = await fbGet('config/invoiceCounter');
+    const counter = await withTimeout(fbGet('config/invoiceCounter'), 5000);
     state.invoiceCounter = counter || loadLS('invoiceCounter_cache', 1);
     updateOnlineIndicator(true);
     listenRealtime();
