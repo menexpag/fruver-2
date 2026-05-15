@@ -85,8 +85,6 @@
         <div class="header-time" id="headerTime"></div>
       </div>
       <div class="pos-layout">
-
-        <!-- Panel izquierdo: productos -->
         <div class="products-panel">
           <div class="search-bar">
             <span class="search-icon">🔍</span>
@@ -95,30 +93,21 @@
           <div class="category-chips" id="categoryChips"></div>
           <div class="products-grid" id="productsGrid"></div>
         </div>
-
-        <!-- Panel derecho: carrito -->
         <div class="cart-panel">
           <div class="cart-header">
             <h3>🛒 Carrito</h3>
             <span class="invoice-num" id="invoiceNum">#0001</span>
           </div>
           <div class="cart-items" id="cartItems">
-            <div class="cart-empty">
-              <span>🥬</span>
-              <p>Carrito vacío</p>
-            </div>
+            <div class="cart-empty"><span>🥬</span><p>Carrito vacío</p></div>
           </div>
           <div class="cart-summary">
-            <div class="summary-row">
-              <span>Subtotal</span><span id="cartSubtotal">$0</span>
-            </div>
+            <div class="summary-row"><span>Subtotal</span><span id="cartSubtotal">$0</span></div>
             <div class="summary-row discount-row hidden" id="discountRow">
               <span>Descuento (<span id="discPct">0</span>%)</span>
               <span id="discountAmt">-$0</span>
             </div>
-            <div class="summary-row total-row">
-              <span>TOTAL</span><span id="cartTotal">$0</span>
-            </div>
+            <div class="summary-row total-row"><span>TOTAL</span><span id="cartTotal">$0</span></div>
           </div>
           <div class="cart-actions">
             <button class="btn-disc" onclick="openDiscountModal()">% Desc.</button>
@@ -148,12 +137,8 @@
         <table class="inventory-table" id="inventoryTable">
           <thead>
             <tr>
-              <th>Producto</th>
-              <th>Categoría</th>
-              <th>Precio/kg</th>
-              <th>Stock</th>
-              <th>Unidad</th>
-              <th>Acciones</th>
+              <th>Producto</th><th>Categoría</th><th>Precio/kg</th>
+              <th>Stock</th><th>Unidad</th><th>Acciones</th>
             </tr>
           </thead>
           <tbody id="inventoryBody"></tbody>
@@ -189,42 +174,24 @@
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-icon">💰</div>
-          <div class="stat-info">
-            <p class="stat-label">Ingresos Hoy</p>
-            <p class="stat-value" id="statIngresos">$0</p>
-          </div>
+          <div class="stat-info"><p class="stat-label">Ingresos Hoy</p><p class="stat-value" id="statIngresos">$0</p></div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">📄</div>
-          <div class="stat-info">
-            <p class="stat-label">Ventas Hoy</p>
-            <p class="stat-value" id="statVentas">0</p>
-          </div>
+          <div class="stat-info"><p class="stat-label">Ventas Hoy</p><p class="stat-value" id="statVentas">0</p></div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">📦</div>
-          <div class="stat-info">
-            <p class="stat-label">Productos</p>
-            <p class="stat-value" id="statProductos">0</p>
-          </div>
+          <div class="stat-info"><p class="stat-label">Productos</p><p class="stat-value" id="statProductos">0</p></div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">⚠️</div>
-          <div class="stat-info">
-            <p class="stat-label">Stock Bajo</p>
-            <p class="stat-value" id="statBajo">0</p>
-          </div>
+          <div class="stat-info"><p class="stat-label">Stock Bajo</p><p class="stat-value" id="statBajo">0</p></div>
         </div>
       </div>
       <div class="charts-grid">
-        <div class="chart-card">
-          <h3>Productos más vendidos</h3>
-          <canvas id="chartTopProducts"></canvas>
-        </div>
-        <div class="chart-card">
-          <h3>Ingresos por método de pago</h3>
-          <canvas id="chartPayments"></canvas>
-        </div>
+        <div class="chart-card"><h3>Productos más vendidos</h3><canvas id="chartTopProducts"></canvas></div>
+        <div class="chart-card"><h3>Ingresos por método de pago</h3><canvas id="chartPayments"></canvas></div>
       </div>
     </section>
 
@@ -267,95 +234,47 @@
       <div class="section-header"><h2>⚙️ Configuración</h2></div>
       <div class="config-grid">
 
-        <!-- Cambiar credenciales -->
         <div class="config-card">
           <div class="config-card-header">
             <span class="config-icon">🔐</span>
-            <div>
-              <h3>Credenciales de acceso</h3>
-              <p>Cambia el usuario y contraseña del administrador</p>
-            </div>
+            <div><h3>Credenciales de acceso</h3><p>Cambia el usuario y contraseña del administrador</p></div>
           </div>
           <div class="config-body">
-            <div class="input-group">
-              <label>Usuario actual</label>
-              <input type="text" id="currentUser" placeholder="Usuario actual" autocomplete="off" />
-            </div>
-            <div class="input-group">
-              <label>Contraseña actual</label>
-              <input type="password" id="currentPass" placeholder="••••••" />
-            </div>
+            <div class="input-group"><label>Usuario actual</label><input type="text" id="currentUser" placeholder="Usuario actual" autocomplete="off" /></div>
+            <div class="input-group"><label>Contraseña actual</label><input type="password" id="currentPass" placeholder="••••••" /></div>
             <hr class="config-divider" />
-            <div class="input-group">
-              <label>Nuevo usuario</label>
-              <input type="text" id="newUser" placeholder="Nuevo usuario" autocomplete="off" />
-            </div>
-            <div class="input-group">
-              <label>Nueva contraseña</label>
-              <input type="password" id="newPass" placeholder="Mínimo 4 caracteres" />
-            </div>
-            <div class="input-group">
-              <label>Confirmar nueva contraseña</label>
-              <input type="password" id="confirmPass" placeholder="Repetir contraseña" />
-            </div>
+            <div class="input-group"><label>Nuevo usuario</label><input type="text" id="newUser" placeholder="Nuevo usuario" autocomplete="off" /></div>
+            <div class="input-group"><label>Nueva contraseña</label><input type="password" id="newPass" placeholder="Mínimo 4 caracteres" /></div>
+            <div class="input-group"><label>Confirmar nueva contraseña</label><input type="password" id="confirmPass" placeholder="Repetir contraseña" /></div>
             <p id="credError" class="cred-error"></p>
             <button class="btn-primary btn-full" onclick="saveCredentials()">💾 Guardar cambios</button>
           </div>
         </div>
 
-        <!-- Info del negocio -->
         <div class="config-card">
           <div class="config-card-header">
             <span class="config-icon">🏪</span>
-            <div>
-              <h3>Datos del negocio</h3>
-              <p>Aparecen en la factura impresa</p>
-            </div>
+            <div><h3>Datos del negocio</h3><p>Aparecen en la factura impresa</p></div>
           </div>
           <div class="config-body">
-            <div class="input-group">
-              <label>Nombre del negocio</label>
-              <input type="text" id="bizName" placeholder="Fruver" />
-            </div>
-            <div class="input-group">
-              <label>Slogan / descripción</label>
-              <input type="text" id="bizSlogan" placeholder="Tu mercado de confianza" />
-            </div>
-            <div class="input-group">
-              <label>Teléfono</label>
-              <input type="text" id="bizPhone" placeholder="+57 300 000 0000" />
-            </div>
-            <div class="input-group">
-              <label>Dirección</label>
-              <input type="text" id="bizAddress" placeholder="Calle 10 # 5-20, Medellín" />
-            </div>
-            <div class="input-group">
-              <label>Mensaje de pie de factura</label>
-              <input type="text" id="bizFooter" placeholder="¡Gracias por su compra!" />
-            </div>
+            <div class="input-group"><label>Nombre del negocio</label><input type="text" id="bizName" placeholder="Fruver" /></div>
+            <div class="input-group"><label>Slogan / descripción</label><input type="text" id="bizSlogan" placeholder="Tu mercado de confianza" /></div>
+            <div class="input-group"><label>Teléfono</label><input type="text" id="bizPhone" placeholder="+57 300 000 0000" /></div>
+            <div class="input-group"><label>Dirección</label><input type="text" id="bizAddress" placeholder="Calle 10 # 5-20, Medellín" /></div>
+            <div class="input-group"><label>Mensaje de pie de factura</label><input type="text" id="bizFooter" placeholder="¡Gracias por su compra!" /></div>
             <button class="btn-primary btn-full" onclick="saveBizInfo()">💾 Guardar datos</button>
           </div>
         </div>
 
-        <!-- Sesión activa -->
         <div class="config-card config-card-sm">
           <div class="config-card-header">
             <span class="config-icon">👤</span>
-            <div>
-              <h3>Sesión activa</h3>
-              <p>Información del usuario conectado</p>
-            </div>
+            <div><h3>Sesión activa</h3><p>Información del usuario conectado</p></div>
           </div>
           <div class="config-body">
             <div class="session-info">
-              <div class="session-row">
-                <span>Usuario</span>
-                <strong id="sessionUser">—</strong>
-              </div>
-              <div class="session-row">
-                <span>Último cambio</span>
-                <strong id="sessionLastChange">—</strong>
-              </div>
+              <div class="session-row"><span>Usuario</span><strong id="sessionUser">—</strong></div>
+              <div class="session-row"><span>Último cambio</span><strong id="sessionLastChange">—</strong></div>
             </div>
             <button class="btn-danger btn-full" style="margin-top:1rem" onclick="doLogout()">🚪 Cerrar sesión</button>
           </div>
@@ -369,7 +288,6 @@
 
 <!-- ═══════════ MODALES ═══════════ -->
 
-<!-- Modal: Agregar/editar producto -->
 <div class="modal-overlay hidden" id="productModal">
   <div class="modal">
     <div class="modal-header">
@@ -378,45 +296,25 @@
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="input-group">
-          <label>Emoji / Ícono</label>
-          <input type="text" id="pEmoji" placeholder="🥔" maxlength="4" />
-        </div>
-        <div class="input-group">
-          <label>Nombre</label>
-          <input type="text" id="pName" placeholder="Papa criolla" />
-        </div>
+        <div class="input-group"><label>Emoji / Ícono</label><input type="text" id="pEmoji" placeholder="🥔" maxlength="4" /></div>
+        <div class="input-group"><label>Nombre</label><input type="text" id="pName" placeholder="Papa criolla" /></div>
         <div class="input-group">
           <label>Categoría</label>
           <select id="pCategory">
-            <option>Tubérculos</option>
-            <option>Verduras</option>
-            <option>Frutas</option>
-            <option>Aromáticas</option>
-            <option>Otros</option>
+            <option>Tubérculos</option><option>Verduras</option><option>Frutas</option>
+            <option>Aromáticas</option><option>Otros</option>
           </select>
         </div>
-        <div class="input-group">
-          <label>Precio por unidad ($)</label>
-          <input type="number" id="pPrice" placeholder="800" min="0" />
-        </div>
-        <div class="input-group">
-          <label>Stock disponible</label>
-          <input type="number" id="pStock" placeholder="50" min="0" />
-        </div>
+        <div class="input-group"><label>Precio por unidad ($)</label><input type="number" id="pPrice" placeholder="800" min="0" /></div>
+        <div class="input-group"><label>Stock disponible</label><input type="number" id="pStock" placeholder="50" min="0" /></div>
         <div class="input-group">
           <label>Unidad</label>
           <select id="pUnit">
-            <option value="kg">Kilogramo (kg)</option>
-            <option value="lb">Libra (lb)</option>
-            <option value="und">Unidad (und)</option>
-            <option value="manojo">Manojo</option>
+            <option value="kg">Kilogramo (kg)</option><option value="lb">Libra (lb)</option>
+            <option value="und">Unidad (und)</option><option value="manojo">Manojo</option>
           </select>
         </div>
-        <div class="input-group">
-          <label>Stock mínimo (alerta)</label>
-          <input type="number" id="pMinStock" placeholder="5" min="0" />
-        </div>
+        <div class="input-group"><label>Stock mínimo (alerta)</label><input type="number" id="pMinStock" placeholder="5" min="0" /></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -426,7 +324,6 @@
   </div>
 </div>
 
-<!-- Modal: Descuento -->
 <div class="modal-overlay hidden" id="discountModal">
   <div class="modal modal-sm">
     <div class="modal-header">
@@ -446,7 +343,6 @@
   </div>
 </div>
 
-<!-- Modal: Factura -->
 <div class="modal-overlay hidden" id="invoiceModal">
   <div class="modal modal-invoice">
     <div class="modal-header no-border">
@@ -461,7 +357,6 @@
   </div>
 </div>
 
-<!-- Modal: Cantidad personalizada -->
 <div class="modal-overlay hidden" id="qtyModal">
   <div class="modal modal-sm">
     <div class="modal-header">
@@ -490,55 +385,10 @@
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
-<!-- Firebase module -->
+<!-- Script tipo módulo (Firebase usa import/export) -->
 <script type="module" src="script.js"></script>
 
-<!-- Puente global: redirige llamadas onclick al módulo -->
-<script>
-  const _fn = name => function() {
-    if (window._fruver && window._fruver[name]) {
-      return window._fruver[name].apply(this, arguments);
-    }
-  };
-  window.doLogin          = _fn('doLogin');
-  window.doLogout         = _fn('doLogout');
-  window.switchSection    = _fn('switchSection');
-  window.toggleSidebar    = _fn('toggleSidebar');
-  window.toggleTheme      = _fn('toggleTheme');
-  window.filterProducts   = _fn('filterProducts');
-  window.openQtyModal     = _fn('openQtyModal');
-  window.selectSaleUnit   = _fn('selectSaleUnit');
-  window.closeQtyModal    = _fn('closeQtyModal');
-  window.confirmQty       = _fn('confirmQty');
-  window.removeFromCart   = _fn('removeFromCart');
-  window.changeQty        = _fn('changeQty');
-  window.clearCart        = _fn('clearCart');
-  window.openDiscountModal  = _fn('openDiscountModal');
-  window.closeDiscountModal = _fn('closeDiscountModal');
-  window.applyDiscount    = _fn('applyDiscount');
-  window.selectPayment    = _fn('selectPayment');
-  window.confirmSale      = _fn('confirmSale');
-  window.printInvoice     = _fn('printInvoice');
-  window.showInvoiceModal = _fn('showInvoiceModal');
-  window.closeInvoiceModal= _fn('closeInvoiceModal');
-  window.filterInventory  = _fn('filterInventory');
-  window.openProductModal = _fn('openProductModal');
-  window.closeProductModal= _fn('closeProductModal');
-  window.saveProduct      = _fn('saveProduct');
-  window.deleteProduct    = _fn('deleteProduct');
-  window.filterHistory    = _fn('filterHistory');
-  window.exportJSON       = _fn('exportJSON');
-  window.resetSales       = _fn('resetSales');
-  window.calcNum          = _fn('calcNum');
-  window.calcOp           = _fn('calcOp');
-  window.calcClear        = _fn('calcClear');
-  window.calcDel          = _fn('calcDel');
-  window.calcEquals       = _fn('calcEquals');
-  window.saveCredentials  = _fn('saveCredentials');
-  window.saveBizInfo      = _fn('saveBizInfo');
-</script>
 </body>
 </html>
