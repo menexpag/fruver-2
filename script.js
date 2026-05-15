@@ -7,9 +7,9 @@
 // ══════════════════════════════════════════
 //  FIREBASE
 // ══════════════════════════════════════════
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, remove, update }
-  from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBEreWP1P4ZaeARkYgJclBo3sSNN0nSsrM",
@@ -46,6 +46,19 @@ let ADMIN_USER = 'admin';
 let ADMIN_PASS = '1234';
 const LOW_STOCK_THRESHOLD = 5;
 
+function uid()  { return '_' + Math.random().toString(36).slice(2, 11); }
+function fmt(n) { return '$' + Number(n).toLocaleString('es-CO'); }
+function today(){ return new Date().toLocaleDateString('es-CO'); }
+function now()  { return new Date().toLocaleString('es-CO'); }
+
+function saveLS(key, val) {
+  try { localStorage.setItem('fruver_' + key, JSON.stringify(val)); } catch(e) {}
+}
+function loadLS(key, def) {
+  try { const v = localStorage.getItem('fruver_' + key); return v ? JSON.parse(v) : def; }
+  catch(e) { return def; }
+}
+
 const DEFAULT_PRODUCTS = [
   { id: uid(), emoji: '🥔', name: 'Papa',      category: 'Tubérculos', price: 1800,  stock: 40, unit: 'kg',     minStock: 5 },
   { id: uid(), emoji: '🧅', name: 'Cebolla',   category: 'Verduras',   price: 2500,  stock: 30, unit: 'kg',     minStock: 5 },
@@ -65,21 +78,8 @@ const DEFAULT_PRODUCTS = [
 ];
 
 // ══════════════════════════════════════════
-//  UTILIDADES
+//  TOAST / LOADING
 // ══════════════════════════════════════════
-function uid()  { return '_' + Math.random().toString(36).slice(2, 11); }
-function fmt(n) { return '$' + Number(n).toLocaleString('es-CO'); }
-function today(){ return new Date().toLocaleDateString('es-CO'); }
-function now()  { return new Date().toLocaleString('es-CO'); }
-
-function saveLS(key, val) {
-  try { localStorage.setItem('fruver_' + key, JSON.stringify(val)); } catch(e) {}
-}
-function loadLS(key, def) {
-  try { const v = localStorage.getItem('fruver_' + key); return v ? JSON.parse(v) : def; }
-  catch(e) { return def; }
-}
-
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -148,6 +148,7 @@ async function doLogin() {
   } catch(e) {
     hideLoading();
     errEl.textContent = '❌ Error de conexión. Verifica tu internet.';
+    console.error(e);
   }
 }
 
@@ -214,7 +215,7 @@ function listenRealtime() {
   });
   onValue(ref(db, 'sales'), snap => {
     state.sales = snap.exists()
-      ? Object.values(snap.val()).sort((a, b) => (b.invoiceNum||0) - (a.invoiceNum||0))
+      ? Object.values(snap.val()).sort((a, b) => (b.invoiceNum || 0) - (a.invoiceNum || 0))
       : [];
     renderHistory(); updateDashboard();
   });
@@ -238,7 +239,9 @@ function startClock() {
 //  NAVEGACIÓN
 // ══════════════════════════════════════════
 function switchSection(name, btn) {
-  document.querySelectorAll('.section').forEach(s => { s.classList.remove('active'); s.classList.add('hidden'); });
+  document.querySelectorAll('.section').forEach(s => {
+    s.classList.remove('active'); s.classList.add('hidden');
+  });
   const sec = document.getElementById('sec-' + name);
   if (sec) { sec.classList.remove('hidden'); sec.classList.add('active'); }
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -375,7 +378,9 @@ function confirmQty() {
   closeQtyModal();
 }
 
-document.getElementById('qtyInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmQty(); });
+document.getElementById('qtyInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmQty();
+});
 
 // ══════════════════════════════════════════
 //  CARRITO
@@ -396,8 +401,8 @@ function getSalePriceFor(product, saleUnit) {
 function addToCart(productId, qtySaleUnit, saleUnit) {
   const p = state.products.find(x => x.id === productId);
   if (!p) return;
-  const qtyBase   = +getQtyInBaseUnitFor(qtySaleUnit, saleUnit, p.unit).toFixed(4);
-  const unitPrice = getSalePriceFor(p, saleUnit);
+  const qtyBase    = +getQtyInBaseUnitFor(qtySaleUnit, saleUnit, p.unit).toFixed(4);
+  const unitPrice  = getSalePriceFor(p, saleUnit);
   const displayUnit = saleUnit || p.unit;
   if (p.stock < qtyBase) {
     showToast(`⚠ Stock insuficiente: ${p.stock} ${p.unit}`, 'warning'); return;
@@ -411,8 +416,10 @@ function addToCart(productId, qtySaleUnit, saleUnit) {
     existing.qtyBase = newBase;
   } else {
     state.cart.push({
-      cartKey: key, productId, qty: +qtySaleUnit.toFixed(4), qtyBase,
-      name: p.name, emoji: p.emoji, price: unitPrice, priceBase: p.price,
+      cartKey: key, productId,
+      qty: +qtySaleUnit.toFixed(4), qtyBase,
+      name: p.name, emoji: p.emoji,
+      price: unitPrice, priceBase: p.price,
       unit: displayUnit, unitBase: p.unit,
     });
   }
@@ -420,7 +427,10 @@ function addToCart(productId, qtySaleUnit, saleUnit) {
   showToast(`✅ ${p.name} – ${qtySaleUnit} ${displayUnit}`);
 }
 
-function removeFromCart(cartKey) { state.cart = state.cart.filter(c => c.cartKey !== cartKey); renderCart(); }
+function removeFromCart(cartKey) {
+  state.cart = state.cart.filter(c => c.cartKey !== cartKey);
+  renderCart();
+}
 
 function changeQty(cartKey, delta) {
   const item = state.cart.find(c => c.cartKey === cartKey);
@@ -454,8 +464,8 @@ function renderCart() {
     container.innerHTML = '<div class="cart-empty"><span>🥬</span><p>Carrito vacío</p></div>';
   } else {
     state.cart.forEach(item => {
-      const subtotal   = item.price * item.qty;
-      const unitLabel  = item.unit !== item.unitBase
+      const subtotal  = item.price * item.qty;
+      const unitLabel = item.unit !== item.unitBase
         ? `<span style="background:var(--accent-lt);color:var(--accent);font-size:.7rem;font-weight:800;padding:1px 5px;border-radius:8px;margin-left:3px">${item.unit}</span>`
         : '';
       const div = document.createElement('div');
@@ -716,6 +726,7 @@ async function saveProduct() {
   } catch(e) {
     hideLoading();
     showToast('❌ Error guardando. Verifica conexión.', 'error');
+    console.error(e);
   }
 }
 
@@ -736,8 +747,8 @@ async function deleteProduct(id) {
 //  HISTORIAL
 // ══════════════════════════════════════════
 function renderHistory() {
-  const query     = (document.getElementById('histSearch')?.value || '').toLowerCase();
-  const todayStr  = today();
+  const query      = (document.getElementById('histSearch')?.value || '').toLowerCase();
+  const todayStr   = today();
   const todaySales = state.sales.filter(s => s.date.includes(todayStr));
   document.getElementById('todaySalesTotal').textContent = fmt(todaySales.reduce((a, s) => a + s.total, 0));
   document.getElementById('todaySalesCount').textContent = todaySales.length;
@@ -805,7 +816,9 @@ function updateDashboard() {
   document.getElementById('statBajo').textContent      = lowCount;
 
   const prodSales = {};
-  state.sales.forEach(s => s.items.forEach(i => { prodSales[i.name] = (prodSales[i.name] || 0) + i.qty; }));
+  state.sales.forEach(s => s.items.forEach(i => {
+    prodSales[i.name] = (prodSales[i.name] || 0) + i.qty;
+  }));
   const sorted = Object.entries(prodSales).sort((a, b) => b[1] - a[1]).slice(0, 7);
 
   if (chartTop) chartTop.destroy();
@@ -854,11 +867,14 @@ async function resetSales() {
 //  CALCULADORA
 // ══════════════════════════════════════════
 let calcState = { expr: '', result: '0', prevResult: null };
+
 function calcNum(n)  { calcState.expr += n; updateCalcDisplay(); }
 function calcOp(op) {
   if (op === '%') {
-    try { const v = eval(calcState.expr || calcState.result); calcState.expr = String(v/100); calcState.result = calcState.expr; }
-    catch(e) { calcState.expr = '0'; }
+    try {
+      const v = eval(calcState.expr || calcState.result);
+      calcState.expr = String(v / 100); calcState.result = calcState.expr;
+    } catch(e) { calcState.expr = '0'; }
   } else {
     if (!calcState.expr && calcState.prevResult !== null) calcState.expr = String(calcState.prevResult);
     calcState.expr += op;
@@ -886,25 +902,30 @@ function updateCalcDisplay() {
   if (calcState.expr) {
     try {
       const p = eval(calcState.expr);
-      if (!isNaN(p) && p !== undefined) document.getElementById('calcResult').textContent = +(+p).toFixed(8);
+      if (!isNaN(p) && p !== undefined)
+        document.getElementById('calcResult').textContent = +(+p).toFixed(8);
     } catch(e) {}
   }
 }
+
 document.addEventListener('keydown', e => {
   if (!document.querySelector('#sec-calculadora.active')) return;
-  if ('0123456789.'.includes(e.key))       calcNum(e.key);
-  else if ('+-*/'.includes(e.key))         calcOp(e.key);
-  else if (e.key==='Enter'||e.key==='=')   calcEquals();
-  else if (e.key==='Backspace')            calcDel();
-  else if (e.key==='Escape')               calcClear();
-  else if (e.key==='%')                    calcOp('%');
+  if ('0123456789.'.includes(e.key))     calcNum(e.key);
+  else if ('+-*/'.includes(e.key))       calcOp(e.key);
+  else if (e.key==='Enter'||e.key==='=') calcEquals();
+  else if (e.key==='Backspace')          calcDel();
+  else if (e.key==='Escape')             calcClear();
+  else if (e.key==='%')                  calcOp('%');
 });
 
 // ══════════════════════════════════════════
 //  CONFIGURACIÓN
 // ══════════════════════════════════════════
 function loadConfigSection() {
-  const biz = loadLS('bizInfo', { name: 'Fruver', slogan: 'Tu mercado de confianza', phone: '', address: '', footer: '¡Gracias por su compra!' });
+  const biz = loadLS('bizInfo', {
+    name: 'Fruver', slogan: 'Tu mercado de confianza',
+    phone: '', address: '', footer: '¡Gracias por su compra!'
+  });
   document.getElementById('sessionUser').textContent       = ADMIN_USER;
   document.getElementById('sessionLastChange').textContent = loadLS('lastCredChange', 'Sin cambios');
   document.getElementById('bizName').value    = biz.name    || '';
@@ -967,3 +988,23 @@ function getBizInfo() {
     phone: '', address: '', footer: '¡Gracias por su compra!'
   });
 }
+
+// ══════════════════════════════════════════
+//  EXPONER FUNCIONES AL SCOPE GLOBAL
+//  (necesario porque este archivo es un módulo ES)
+// ══════════════════════════════════════════
+Object.assign(window, {
+  doLogin, doLogout,
+  switchSection, toggleSidebar, toggleTheme,
+  filterProducts,
+  openQtyModal, selectSaleUnit, closeQtyModal, confirmQty,
+  removeFromCart, changeQty, clearCart,
+  openDiscountModal, closeDiscountModal, applyDiscount,
+  selectPayment,
+  confirmSale, printInvoice, showInvoiceModal, closeInvoiceModal,
+  filterInventory, openProductModal, closeProductModal, saveProduct, deleteProduct,
+  filterHistory, exportJSON,
+  resetSales,
+  calcNum, calcOp, calcClear, calcDel, calcEquals,
+  saveCredentials, saveBizInfo,
+});
