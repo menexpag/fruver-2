@@ -1,68 +1,385 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>La Legumbrería - POS</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🌿 La Legumbrería – POS</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <header class="top-bar">
-        <div class="logo">🥦 La Legumbrería</div>
-        <nav>
-            <button class="active">🛒 Venta</button>
-            <button>📦 Inventario</button>
-            <button>📋 Historial</button>
-        </nav>
-        <div class="timer" id="clock">00:00:00</div>
-    </header>
 
-    <main class="container">
-        <aside class="sidebar">
-            <div class="cart-section">
-                <h3>Carrito</h3>
-                <div id="cart-items" class="cart-items">
-                    <p class="empty-msg">El carrito está vacío</p>
-                </div>
-                <div class="totals">
-                    <div class="row"><span>Subtotal</span><span id="subtotal">$0.00</span></div>
-                    <div class="row total"><span>TOTAL</span><span id="total">$0.00</span></div>
-                </div>
+<!-- ═══════════════════════════ LOGIN ═══════════════════════════ -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🌿</div>
+    <h1 class="login-title">La Legumbrería</h1>
+    <p class="login-sub">Sistema de Punto de Venta</p>
+    <div class="login-form">
+      <div class="input-group">
+        <label>Usuario</label>
+        <input type="text" id="loginUser" placeholder="admin" autocomplete="off" />
+      </div>
+      <div class="input-group">
+        <label>Contraseña</label>
+        <input type="password" id="loginPass" placeholder="••••••" />
+      </div>
+      <p id="loginError" class="login-error"></p>
+      <button class="btn-login" onclick="doLogin()">Ingresar →</button>
+    </div>
+    <p class="login-hint">Usuario: <b>admin</b> · Contraseña: <b>1234</b></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ APP ═══════════════════════════ -->
+<div id="app" class="app hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🌿</span>
+      <span class="logo-text">Legumbrería</span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-btn active" data-section="venta" onclick="switchSection('venta', this)">
+        <span class="nav-icon">🛒</span><span>Ventas</span>
+      </button>
+      <button class="nav-btn" data-section="inventario" onclick="switchSection('inventario', this)">
+        <span class="nav-icon">📦</span><span>Inventario</span>
+      </button>
+      <button class="nav-btn" data-section="historial" onclick="switchSection('historial', this)">
+        <span class="nav-icon">📋</span><span>Historial</span>
+      </button>
+      <button class="nav-btn" data-section="admin" onclick="switchSection('admin', this)">
+        <span class="nav-icon">📊</span><span>Dashboard</span>
+      </button>
+      <button class="nav-btn" data-section="calculadora" onclick="switchSection('calculadora', this)">
+        <span class="nav-icon">🔢</span><span>Calculadora</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
+        <span id="themeIcon">🌙</span>
+      </button>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
+    </div>
+  </aside>
+
+  <!-- MOBILE HEADER -->
+  <header class="mobile-header">
+    <button class="hamburger" onclick="toggleSidebar()">☰</button>
+    <span class="mobile-logo">🌿 Legumbrería</span>
+    <div class="mobile-time" id="mobileTime"></div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- ══════ SECCIÓN VENTAS ══════ -->
+    <section id="sec-venta" class="section active">
+      <div class="section-header">
+        <h2>Punto de Venta</h2>
+        <div class="header-time" id="headerTime"></div>
+      </div>
+      <div class="pos-layout">
+
+        <!-- Panel izquierdo: productos -->
+        <div class="products-panel">
+          <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Buscar producto…" oninput="filterProducts()" />
+          </div>
+          <div class="category-chips" id="categoryChips"></div>
+          <div class="products-grid" id="productsGrid"></div>
+        </div>
+
+        <!-- Panel derecho: carrito -->
+        <div class="cart-panel">
+          <div class="cart-header">
+            <h3>🛒 Carrito</h3>
+            <span class="invoice-num" id="invoiceNum">#0001</span>
+          </div>
+          <div class="cart-items" id="cartItems">
+            <div class="cart-empty">
+              <span>🥬</span>
+              <p>Carrito vacío</p>
             </div>
-
-            <div class="numpad-section">
-                <div class="display-qty">
-                    <span>Cantidad (kg)</span>
-                    <span id="qty-display">0</span>
-                </div>
-                <div class="numpad">
-                    <button onclick="addNum('1')">1</button>
-                    <button onclick="addNum('2')">2</button>
-                    <button onclick="addNum('3')">3</button>
-                    <button class="btn-blue">Desc %</button>
-                    <button onclick="addNum('4')">4</button>
-                    <button onclick="addNum('5')">5</button>
-                    <button onclick="addNum('6')">6</button>
-                    <button class="btn-blue">Cant.</button>
-                    <button onclick="addNum('7')">7</button>
-                    <button onclick="addNum('8')">8</button>
-                    <button onclick="addNum('9')">9</button>
-                    <button class="btn-orange" onclick="deleteNum()">⌫</button>
-                    <button>+/-</button>
-                    <button onclick="addNum('0')">0</button>
-                    <button onclick="addNum('.')">.</button>
-                    <button class="btn-orange" onclick="clearQty()">C</button>
-                </div>
-                <button class="btn-confirm" onclick="confirmSale()">✅ Confirmar venta</button>
+          </div>
+          <div class="cart-summary">
+            <div class="summary-row">
+              <span>Subtotal</span><span id="cartSubtotal">$0</span>
             </div>
-        </aside>
+            <div class="summary-row discount-row hidden" id="discountRow">
+              <span>Descuento (<span id="discPct">0</span>%)</span>
+              <span id="discountAmt">-$0</span>
+            </div>
+            <div class="summary-row total-row">
+              <span>TOTAL</span><span id="cartTotal">$0</span>
+            </div>
+          </div>
+          <div class="cart-actions">
+            <button class="btn-disc" onclick="openDiscountModal()">% Desc.</button>
+            <button class="btn-clear" onclick="clearCart()">Limpiar</button>
+          </div>
+          <div class="payment-methods">
+            <button class="pay-btn active" data-method="efectivo" onclick="selectPayment(this)">💵 Efectivo</button>
+            <button class="pay-btn" data-method="transferencia" onclick="selectPayment(this)">📲 Transf.</button>
+            <button class="pay-btn" data-method="tarjeta" onclick="selectPayment(this)">💳 Tarjeta</button>
+          </div>
+          <button class="btn-confirm" onclick="confirmSale()">✅ Confirmar Venta</button>
+          <button class="btn-print" onclick="printInvoice()">🖨 Imprimir Factura</button>
+        </div>
+      </div>
+    </section>
 
-        <section class="products-area">
-            <input type="text" id="search" placeholder="🔍 Buscar producto..." onkeyup="filterProducts()">
-            <div class="product-grid" id="product-grid">
-                </div>
-        </section>
-    </main>
-    <script src="script.js"></script>
+    <!-- ══════ SECCIÓN INVENTARIO ══════ -->
+    <section id="sec-inventario" class="section hidden">
+      <div class="section-header">
+        <h2>📦 Inventario</h2>
+        <button class="btn-primary" onclick="openProductModal()">+ Nuevo Producto</button>
+      </div>
+      <div class="inv-search">
+        <input type="text" id="invSearch" placeholder="🔍 Buscar producto…" oninput="filterInventory()" />
+      </div>
+      <div class="inventory-table-wrap">
+        <table class="inventory-table" id="inventoryTable">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Categoría</th>
+              <th>Precio/kg</th>
+              <th>Stock</th>
+              <th>Unidad</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════ SECCIÓN HISTORIAL ══════ -->
+    <section id="sec-historial" class="section hidden">
+      <div class="section-header">
+        <h2>📋 Historial de Ventas</h2>
+        <div class="hist-controls">
+          <input type="text" id="histSearch" placeholder="🔍 Buscar factura…" oninput="filterHistory()" />
+          <button class="btn-secondary" onclick="exportJSON()">⬇ Exportar JSON</button>
+        </div>
+      </div>
+      <div class="day-total-bar">
+        <span>💰 Ventas de hoy: <strong id="todaySalesTotal">$0</strong></span>
+        <span>📄 Facturas: <strong id="todaySalesCount">0</strong></span>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </section>
+
+    <!-- ══════ SECCIÓN DASHBOARD ══════ -->
+    <section id="sec-admin" class="section hidden">
+      <div class="section-header">
+        <h2>📊 Dashboard</h2>
+        <div class="admin-controls">
+          <button class="btn-danger" onclick="resetSales()">🗑 Reiniciar Ventas</button>
+          <button class="btn-secondary" onclick="exportJSON()">⬇ Exportar JSON</button>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">💰</div>
+          <div class="stat-info">
+            <p class="stat-label">Ingresos Hoy</p>
+            <p class="stat-value" id="statIngresos">$0</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📄</div>
+          <div class="stat-info">
+            <p class="stat-label">Ventas Hoy</p>
+            <p class="stat-value" id="statVentas">0</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📦</div>
+          <div class="stat-info">
+            <p class="stat-label">Productos</p>
+            <p class="stat-value" id="statProductos">0</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⚠️</div>
+          <div class="stat-info">
+            <p class="stat-label">Stock Bajo</p>
+            <p class="stat-value" id="statBajo">0</p>
+          </div>
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Productos más vendidos</h3>
+          <canvas id="chartTopProducts"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Ingresos por método de pago</h3>
+          <canvas id="chartPayments"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ SECCIÓN CALCULADORA ══════ -->
+    <section id="sec-calculadora" class="section hidden">
+      <div class="section-header"><h2>🔢 Calculadora</h2></div>
+      <div class="calc-wrapper">
+        <div class="calc">
+          <div class="calc-display">
+            <div class="calc-expr" id="calcExpr"></div>
+            <div class="calc-result" id="calcResult">0</div>
+          </div>
+          <div class="calc-grid">
+            <button class="calc-btn span2 btn-orange" onclick="calcClear()">C</button>
+            <button class="calc-btn btn-orange" onclick="calcDel()">⌫</button>
+            <button class="calc-btn btn-op" onclick="calcOp('%')">%</button>
+            <button class="calc-btn" onclick="calcNum('7')">7</button>
+            <button class="calc-btn" onclick="calcNum('8')">8</button>
+            <button class="calc-btn" onclick="calcNum('9')">9</button>
+            <button class="calc-btn btn-op" onclick="calcOp('/')">÷</button>
+            <button class="calc-btn" onclick="calcNum('4')">4</button>
+            <button class="calc-btn" onclick="calcNum('5')">5</button>
+            <button class="calc-btn" onclick="calcNum('6')">6</button>
+            <button class="calc-btn btn-op" onclick="calcOp('*')">×</button>
+            <button class="calc-btn" onclick="calcNum('1')">1</button>
+            <button class="calc-btn" onclick="calcNum('2')">2</button>
+            <button class="calc-btn" onclick="calcNum('3')">3</button>
+            <button class="calc-btn btn-op" onclick="calcOp('-')">−</button>
+            <button class="calc-btn" onclick="calcNum('0')">0</button>
+            <button class="calc-btn" onclick="calcNum('.')">.</button>
+            <button class="calc-btn btn-green" onclick="calcEquals()">=</button>
+            <button class="calc-btn btn-op" onclick="calcOp('+')">+</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ═══════════ MODALES ═══════════ -->
+
+<!-- Modal: Agregar/editar producto -->
+<div class="modal-overlay hidden" id="productModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="productModalTitle">Nuevo Producto</h3>
+      <button class="modal-close" onclick="closeProductModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="input-group">
+          <label>Emoji / Ícono</label>
+          <input type="text" id="pEmoji" placeholder="🥔" maxlength="4" />
+        </div>
+        <div class="input-group">
+          <label>Nombre</label>
+          <input type="text" id="pName" placeholder="Papa criolla" />
+        </div>
+        <div class="input-group">
+          <label>Categoría</label>
+          <select id="pCategory">
+            <option>Tubérculos</option>
+            <option>Verduras</option>
+            <option>Frutas</option>
+            <option>Aromáticas</option>
+            <option>Otros</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Precio por unidad ($)</label>
+          <input type="number" id="pPrice" placeholder="800" min="0" />
+        </div>
+        <div class="input-group">
+          <label>Stock disponible</label>
+          <input type="number" id="pStock" placeholder="50" min="0" />
+        </div>
+        <div class="input-group">
+          <label>Unidad</label>
+          <select id="pUnit">
+            <option value="kg">Kilogramo (kg)</option>
+            <option value="lb">Libra (lb)</option>
+            <option value="und">Unidad (und)</option>
+            <option value="manojo">Manojo</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Stock mínimo (alerta)</label>
+          <input type="number" id="pMinStock" placeholder="5" min="0" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeProductModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveProduct()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Descuento -->
+<div class="modal-overlay hidden" id="discountModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>Aplicar Descuento</h3>
+      <button class="modal-close" onclick="closeDiscountModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="input-group">
+        <label>Porcentaje de descuento (%)</label>
+        <input type="number" id="discountInput" placeholder="10" min="0" max="100" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeDiscountModal()">Cancelar</button>
+      <button class="btn-primary" onclick="applyDiscount()">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Factura -->
+<div class="modal-overlay hidden" id="invoiceModal">
+  <div class="modal modal-invoice">
+    <div class="modal-header no-border">
+      <h3>Factura de Venta</h3>
+      <button class="modal-close" onclick="closeInvoiceModal()">✕</button>
+    </div>
+    <div class="modal-body" id="invoiceContent"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeInvoiceModal()">Cerrar</button>
+      <button class="btn-primary" onclick="window.print()">🖨 Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cantidad personalizada -->
+<div class="modal-overlay hidden" id="qtyModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3 id="qtyModalTitle">Ingresar cantidad</h3>
+      <button class="modal-close" onclick="closeQtyModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="input-group">
+        <label>Cantidad (kg / und)</label>
+        <input type="number" id="qtyInput" placeholder="1" min="0.1" step="0.1" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeQtyModal()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmQty()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="script.js"></script>
 </body>
 </html>
