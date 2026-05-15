@@ -584,6 +584,69 @@ h1,h2,h3 { font-family: 'DM Sans', sans-serif; font-weight: 700; }
 .invoice-print .inv-total { font-weight: 800; border-top: 1px dashed var(--border); padding-top: .5rem; }
 .invoice-print .inv-footer { text-align: center; color: var(--text-muted); margin-top: 1rem; font-size: .8rem; }
 
+/* ══════════════ TICKET TERMICO ══════════════ */
+.invoice-thermal {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: .82rem;
+  color: var(--text);
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  padding: .5rem 0;
+  line-height: 1.55;
+}
+.tkt-center  { text-align: center; }
+.tkt-bold    { font-weight: 700; }
+.tkt-big     { font-size: 1.05rem; letter-spacing: 1px; margin-bottom: .1rem; }
+.tkt-sm      { font-size: .75rem; }
+.tkt-muted   { color: var(--text-muted); }
+.tkt-line {
+  border: none;
+  border-top: 1px dashed var(--border);
+  margin: .4rem 0;
+}
+.tkt-line-thin {
+  border-top-style: dotted;
+  margin: .2rem 0;
+}
+.tkt-line-double {
+  border-top: 2px solid var(--text);
+  margin: .4rem 0;
+}
+.tkt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+}
+.tkt-row span:last-child { white-space: nowrap; }
+.tkt-total {
+  font-weight: 800;
+  font-size: 1rem;
+}
+.tkt-col-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: .75rem;
+  letter-spacing: .5px;
+}
+.tkt-items {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  margin: .25rem 0;
+}
+.tkt-item-desc {
+  display: block;
+  font-weight: 600;
+}
+.tkt-item-price {
+  display: block;
+  white-space: pre;
+  color: var(--text-muted);
+  font-size: .78rem;
+}
+
 /* ══════════════ TOAST ══════════════ */
 .toast {
   position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999;
@@ -701,9 +764,25 @@ h1,h2,h3 { font-family: 'DM Sans', sans-serif; font-weight: 700; }
 /* ══════════════ PRINT STYLES ══════════════ */
 @media print {
   body > *:not(#invoiceModal) { display: none !important; }
-  #invoiceModal { display: flex !important; position: static !important; background: none !important; }
-  .modal-footer, .modal-close { display: none !important; }
-  .modal { box-shadow: none; max-width: 100%; }
+  #invoiceModal {
+    display: flex !important;
+    position: static !important;
+    background: none !important;
+  }
+  .modal-footer, .modal-close, .modal-header { display: none !important; }
+  .modal {
+    box-shadow: none;
+    max-width: 100%;
+    border-radius: 0;
+  }
+  .invoice-thermal {
+    max-width: 80mm;
+    font-size: 10pt;
+    color: #000;
+  }
+  .tkt-line        { border-color: #000; }
+  .tkt-line-double { border-color: #000; }
+  .tkt-muted       { color: #555; }
 }
 
 /* ══════════════ RESPONSIVE ══════════════ */
