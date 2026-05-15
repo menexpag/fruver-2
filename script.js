@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   La Legumbrería – POS · script.js
+   Fruver – POS · script.js
    ═══════════════════════════════════════════ */
 
 'use strict';
@@ -20,14 +20,14 @@ let state = {
 };
 
 // Credenciales dinámicas (se cargan desde localStorage)
-let ADMIN_USER = 'LUISA';
-let ADMIN_PASS = '240610';
+let ADMIN_USER = 'admin';
+let ADMIN_PASS = '1234';
 const LOW_STOCK_THRESHOLD = 5;
 
 function loadCredentials() {
-  const creds = loadLS('credentials', { user: '', pass: '', lastChange: null });
-  ADMIN_USER = creds.LUISA;
-  ADMIN_PASS = creds.240610;
+  const creds = loadLS('credentials', { user: 'admin', pass: '1234', lastChange: null });
+  ADMIN_USER = creds.user;
+  ADMIN_PASS = creds.pass;
   return creds;
 }
 
@@ -993,7 +993,7 @@ document.addEventListener('keydown', e => {
 
 function loadConfigSection() {
   const creds = loadLS('credentials', { user: 'admin', pass: '1234', lastChange: null });
-  const biz   = loadLS('bizInfo', { name: 'La Legumbrería', slogan: 'Tu mercado de confianza', phone: '', address: '', footer: '¡Gracias por su compra!' });
+  const biz   = loadLS('bizInfo', { name: 'Fruver', slogan: 'Tu mercado de confianza', phone: '', address: '', footer: '¡Gracias por su compra!' });
 
   // Sesión activa
   document.getElementById('sessionUser').textContent       = creds.user;
@@ -1060,7 +1060,7 @@ function saveCredentials() {
 
 function saveBizInfo() {
   const biz = {
-    name:    document.getElementById('bizName').value.trim()    || 'La Legumbrería',
+    name:    document.getElementById('bizName').value.trim()    || 'Fruver',
     slogan:  document.getElementById('bizSlogan').value.trim()  || 'Tu mercado de confianza',
     phone:   document.getElementById('bizPhone').value.trim(),
     address: document.getElementById('bizAddress').value.trim(),
@@ -1073,7 +1073,7 @@ function saveBizInfo() {
 // Exponer getBizInfo para usarla en la factura
 function getBizInfo() {
   return loadLS('bizInfo', {
-    name: 'La Legumbrería', slogan: 'Tu mercado de confianza',
+    name: 'Fruver', slogan: 'Tu mercado de confianza',
     phone: '', address: '', footer: '¡Gracias por su compra!'
   });
 }
