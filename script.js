@@ -20,12 +20,12 @@ let state = {
 };
 
 // Credenciales dinámicas (se cargan desde localStorage)
-let ADMIN_USER = 'admin';
-let ADMIN_PASS = '1234';
+let ADMIN_USER = 'LUISA';
+let ADMIN_PASS = '240610';
 const LOW_STOCK_THRESHOLD = 5;
 
 function loadCredentials() {
-  const creds = loadLS('credentials', { user: 'admin', pass: '1234', lastChange: null });
+  const creds = loadLS('credentials', { user: '', pass: '', lastChange: null });
   ADMIN_USER = creds.user;
   ADMIN_PASS = creds.pass;
   return creds;
