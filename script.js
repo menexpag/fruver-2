@@ -26,8 +26,8 @@ const LOW_STOCK_THRESHOLD = 5;
 
 function loadCredentials() {
   const creds = loadLS('credentials', { user: '', pass: '', lastChange: null });
-  ADMIN_USER = creds.user;
-  ADMIN_PASS = creds.pass;
+  ADMIN_USER = creds.LUISA;
+  ADMIN_PASS = creds.240610;
   return creds;
 }
 
