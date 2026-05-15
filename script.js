@@ -592,47 +592,52 @@ function printInvoice() {
 
 function showInvoiceModal(sale) {
   const biz = getBizInfo();
-  const rows = sale.items.map(i => `
-    <tr>
-      <td>${i.emoji} ${i.name}</td>
-      <td style="text-align:center">${i.qty} ${i.unit}</td>
-      <td style="text-align:right">${fmt(Math.round(i.price))}</td>
-      <td style="text-align:right">${fmt(Math.round(i.price * i.qty))}</td>
-    </tr>
-  `).join('');
+  const W = 42; // ancho de columnas en caracteres para alineación
+
+  function pad(str, len, right = false) {
+    const s = String(str).slice(0, len);
+    return right ? s.padStart(len) : s.padEnd(len);
+  }
+  function line(char = '-') { return char.repeat(W); }
+  function row2(left, right) {
+    const maxLeft = W - right.length - 1;
+    return pad(left, maxLeft) + ' ' + pad(right, right.length, true);
+  }
+
+  const methodLabel = { efectivo: 'Efectivo', transferencia: 'Transferencia', tarjeta: 'Tarjeta' };
+
+  const itemLines = sale.items.map(i => {
+    const total = fmt(Math.round(i.price * i.qty));
+    const desc  = `${i.name} x${i.qty} ${i.unit}`;
+    const price = `${fmt(Math.round(i.price))}/${i.unit}`;
+    return `<span class="tkt-item-desc">${desc}</span>\n<span class="tkt-item-price">${row2('  ' + price, total)}</span>`;
+  }).join('\n');
 
   document.getElementById('invoiceContent').innerHTML = `
-    <div class="invoice-print">
-      <div class="inv-header">
-        <div style="font-size:2rem">🌿</div>
-        <h2>${biz.name}</h2>
-        <p>${biz.slogan}</p>
-        ${biz.phone   ? `<p>📞 ${biz.phone}</p>` : ''}
-        ${biz.address ? `<p>📍 ${biz.address}</p>` : ''}
-        <hr style="margin:.5rem 0;border-color:var(--border)">
-        <p><b>${sale.invoice}</b> · ${sale.date}</p>
+    <div class="invoice-thermal">
+      <div class="tkt-center tkt-bold tkt-big">${biz.name.toUpperCase()}</div>
+      ${biz.slogan  ? `<div class="tkt-center tkt-muted">${biz.slogan}</div>` : ''}
+      ${biz.address ? `<div class="tkt-center tkt-muted">${biz.address}</div>` : ''}
+      ${biz.phone   ? `<div class="tkt-center tkt-muted">Tel: ${biz.phone}</div>` : ''}
+      <div class="tkt-line"></div>
+      <div class="tkt-row"><span>Factura:</span><span>${sale.invoice}</span></div>
+      <div class="tkt-row"><span>Fecha:</span><span>${sale.date}</span></div>
+      <div class="tkt-line"></div>
+      <div class="tkt-col-header">
+        <span>DESCRIPCION</span><span>TOTAL</span>
       </div>
-      <table>
-        <thead>
-          <tr style="border-bottom:1px solid var(--border)">
-            <th style="text-align:left">Producto</th>
-            <th style="text-align:center">Cant.</th>
-            <th style="text-align:right">Precio</th>
-            <th style="text-align:right">Total</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <table>
-        <tr><td>Subtotal</td><td style="text-align:right">${fmt(Math.round(sale.subtotal))}</td></tr>
-        ${sale.discountPct > 0 ? `<tr><td>Descuento (${sale.discountPct}%)</td><td style="text-align:right">-${fmt(Math.round(sale.discount))}</td></tr>` : ''}
-        <tr class="inv-total"><td><b>TOTAL</b></td><td style="text-align:right"><b>${fmt(Math.round(sale.total))}</b></td></tr>
-        <tr><td>Método de pago</td><td style="text-align:right;text-transform:capitalize">${sale.method}</td></tr>
-      </table>
-      <div class="inv-footer">
-        <p>${biz.footer}</p>
-        <p>🌿 ${biz.name}</p>
-      </div>
+      <div class="tkt-line tkt-line-thin"></div>
+      <div class="tkt-items">${itemLines}</div>
+      <div class="tkt-line"></div>
+      <div class="tkt-row"><span>Subtotal</span><span>${fmt(Math.round(sale.subtotal))}</span></div>
+      ${sale.discountPct > 0 ? `<div class="tkt-row"><span>Descuento (${sale.discountPct}%)</span><span>-${fmt(Math.round(sale.discount))}</span></div>` : ''}
+      <div class="tkt-line tkt-line-double"></div>
+      <div class="tkt-row tkt-total"><span>TOTAL</span><span>${fmt(Math.round(sale.total))}</span></div>
+      <div class="tkt-row"><span>Pago</span><span>${methodLabel[sale.method] || sale.method}</span></div>
+      <div class="tkt-line"></div>
+      <div class="tkt-center tkt-muted tkt-sm">${biz.footer}</div>
+      <div class="tkt-center tkt-muted tkt-sm" style="margin-top:.25rem">${biz.name}</div>
+      <div style="height:1.5rem"></div>
     </div>
   `;
   document.getElementById('invoiceModal').classList.remove('hidden');
