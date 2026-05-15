@@ -233,27 +233,118 @@ function filterProducts() {
 }
 
 // ══════════════════════════════════════════
-//  MODAL DE CANTIDAD
+//  MODAL DE CANTIDAD (con selector kg / lb)
 // ══════════════════════════════════════════
+const KG_TO_LB = 2.20462;
+const LB_TO_KG = 1 / KG_TO_LB;
+
+let qtyModalState = {
+  productId: null,
+  baseUnit: 'kg',   // unidad base del producto
+  saleUnit: 'kg',   // unidad elegida para vender
+};
+
 function openQtyModal(productId) {
   const p = state.products.find(x => x.id === productId);
   if (!p) return;
-  state.pendingProductId = productId;
-  document.getElementById('qtyModalTitle').textContent = `${p.emoji} ${p.name} – cantidad`;
+  qtyModalState.productId = productId;
+  qtyModalState.baseUnit  = p.unit;
+  qtyModalState.saleUnit  = p.unit;  // por defecto igual a la del producto
+
+  document.getElementById('qtyModalTitle').textContent = `${p.emoji} ${p.name}`;
   document.getElementById('qtyInput').value = '1';
+
+  // Mostrar selector solo si el producto es kg o lb
+  const showSelector = (p.unit === 'kg' || p.unit === 'lb');
+  const wrap = document.getElementById('unitSelectorWrap');
+  wrap.classList.toggle('hidden', !showSelector);
+
+  if (showSelector) {
+    // Activar el botón de la unidad base
+    selectSaleUnit(p.unit, true);
+  } else {
+    document.getElementById('qtyLabel').textContent = `Cantidad (${p.unit})`;
+  }
+
+  updatePricePreview();
   document.getElementById('qtyModal').classList.remove('hidden');
   setTimeout(() => document.getElementById('qtyInput').focus(), 100);
 }
+
+function selectSaleUnit(unit, silent) {
+  qtyModalState.saleUnit = unit;
+  document.getElementById('unitBtnKg').classList.toggle('active', unit === 'kg');
+  document.getElementById('unitBtnLb').classList.toggle('active', unit === 'lb');
+
+  const p = state.products.find(x => x.id === qtyModalState.productId);
+  if (!p) return;
+
+  const label = document.getElementById('qtyLabel');
+  label.textContent = unit === 'kg' ? 'Cantidad en Kilos (kg)' : 'Cantidad en Libras (lb)';
+
+  // Info de conversión
+  const info = document.getElementById('unitInfo');
+  if (unit !== p.unit) {
+    if (unit === 'lb') {
+      // base es kg, usuario vende en lb → precio por lb = precio_kg / 2.20462
+      const priceLb = p.price * LB_TO_KG;
+      info.textContent = `1 lb = 0.454 kg · Precio por libra: ${fmt(Math.round(priceLb))}`;
+    } else {
+      // base es lb, usuario vende en kg → precio por kg = precio_lb * 2.20462
+      const priceKg = p.price * KG_TO_LB;
+      info.textContent = `1 kg = 2.205 lb · Precio por kilo: ${fmt(Math.round(priceKg))}`;
+    }
+  } else {
+    info.textContent = `Precio base: ${fmt(p.price)}/${p.unit}`;
+  }
+
+  if (!silent) updatePricePreview();
+}
+
+function getSalePrice(product) {
+  // Precio por unidad de venta elegida
+  if (qtyModalState.saleUnit === qtyModalState.baseUnit) return product.price;
+  if (qtyModalState.saleUnit === 'lb' && qtyModalState.baseUnit === 'kg') {
+    return product.price * LB_TO_KG;   // precio/lb
+  }
+  if (qtyModalState.saleUnit === 'kg' && qtyModalState.baseUnit === 'lb') {
+    return product.price * KG_TO_LB;   // precio/kg
+  }
+  return product.price;
+}
+
+function getQtyInBaseUnit(qty) {
+  // Convierte la cantidad ingresada a la unidad base del producto
+  if (qtyModalState.saleUnit === qtyModalState.baseUnit) return qty;
+  if (qtyModalState.saleUnit === 'lb' && qtyModalState.baseUnit === 'kg') return qty * LB_TO_KG;
+  if (qtyModalState.saleUnit === 'kg' && qtyModalState.baseUnit === 'lb') return qty * KG_TO_LB;
+  return qty;
+}
+
+function updatePricePreview() {
+  const qty = parseFloat(document.getElementById('qtyInput').value) || 0;
+  const p = state.products.find(x => x.id === qtyModalState.productId);
+  const preview = document.getElementById('pricePreview');
+  if (!p || qty <= 0) { preview.textContent = ''; return; }
+  const unitPrice = getSalePrice(p);
+  const total = unitPrice * qty;
+  preview.textContent = `${qty} ${qtyModalState.saleUnit} × ${fmt(Math.round(unitPrice))}/${qtyModalState.saleUnit} = ${fmt(Math.round(total))}`;
+}
+
+document.getElementById('qtyInput').addEventListener('input', updatePricePreview);
+
 function closeQtyModal() {
   document.getElementById('qtyModal').classList.add('hidden');
-  state.pendingProductId = null;
+  qtyModalState.productId = null;
 }
+
 function confirmQty() {
   const qty = parseFloat(document.getElementById('qtyInput').value);
   if (!qty || qty <= 0) { showToast('Cantidad inválida', 'error'); return; }
-  addToCart(state.pendingProductId, qty);
+  addToCart(qtyModalState.productId, qty, qtyModalState.saleUnit);
   closeQtyModal();
 }
+
 document.getElementById('qtyInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') confirmQty();
 });
@@ -261,35 +352,77 @@ document.getElementById('qtyInput').addEventListener('keydown', e => {
 // ══════════════════════════════════════════
 //  CARRITO
 // ══════════════════════════════════════════
-function addToCart(productId, qty) {
+function addToCart(productId, qtySaleUnit, saleUnit) {
   const p = state.products.find(x => x.id === productId);
   if (!p) return;
-  if (p.stock < qty) { showToast(`⚠ Stock insuficiente (${p.stock} ${p.unit})`, 'warning'); return; }
 
-  const existing = state.cart.find(c => c.productId === productId);
+  // qty en unidad base para descontar stock
+  const qtyBase = +getQtyInBaseUnitFor(qtySaleUnit, saleUnit, p.unit).toFixed(4);
+  const unitPrice = getSalePriceFor(p, saleUnit);
+  const displayUnit = saleUnit || p.unit;
+
+  if (p.stock < qtyBase) {
+    const stockLb = p.unit === 'kg' ? +(p.stock * KG_TO_LB).toFixed(2) : p.stock;
+    const stockKg = p.unit === 'lb' ? +(p.stock * LB_TO_KG).toFixed(2) : p.stock;
+    showToast(`⚠ Stock: ${p.stock} ${p.unit} (≈ ${p.unit==='kg' ? stockLb+' lb' : stockKg+' kg'})`, 'warning');
+    return;
+  }
+
+  // Buscar item con mismo producto Y misma unidad de venta
+  const key = productId + '_' + displayUnit;
+  const existing = state.cart.find(c => c.cartKey === key);
   if (existing) {
-    if (p.stock < existing.qty + qty) { showToast('⚠ Sin stock suficiente', 'warning'); return; }
-    existing.qty = +(existing.qty + qty).toFixed(3);
+    const newBase = +(existing.qtyBase + qtyBase).toFixed(4);
+    if (p.stock < newBase) { showToast('⚠ Sin stock suficiente', 'warning'); return; }
+    existing.qty     = +(existing.qty + qtySaleUnit).toFixed(4);
+    existing.qtyBase = newBase;
   } else {
-    state.cart.push({ productId, qty, name: p.name, emoji: p.emoji, price: p.price, unit: p.unit });
+    state.cart.push({
+      cartKey: key,
+      productId,
+      qty: +qtySaleUnit.toFixed(4),
+      qtyBase,
+      name: p.name,
+      emoji: p.emoji,
+      price: unitPrice,       // precio por unidad de venta
+      priceBase: p.price,     // precio base original
+      unit: displayUnit,      // unidad de venta mostrada
+      unitBase: p.unit,       // unidad base del producto
+    });
   }
   renderCart();
-  showToast(`✅ ${p.name} agregado`);
+  showToast(`✅ ${p.name} – ${qtySaleUnit} ${displayUnit}`);
 }
 
-function removeFromCart(productId) {
-  state.cart = state.cart.filter(c => c.productId !== productId);
+// Helpers independientes del estado modal (para uso general)
+function getQtyInBaseUnitFor(qty, saleUnit, baseUnit) {
+  if (!saleUnit || saleUnit === baseUnit) return qty;
+  if (saleUnit === 'lb' && baseUnit === 'kg') return qty * LB_TO_KG;
+  if (saleUnit === 'kg' && baseUnit === 'lb') return qty * KG_TO_LB;
+  return qty;
+}
+function getSalePriceFor(product, saleUnit) {
+  if (!saleUnit || saleUnit === product.unit) return product.price;
+  if (saleUnit === 'lb' && product.unit === 'kg') return product.price * LB_TO_KG;
+  if (saleUnit === 'kg' && product.unit === 'lb') return product.price * KG_TO_LB;
+  return product.price;
+}
+
+function removeFromCart(cartKey) {
+  state.cart = state.cart.filter(c => c.cartKey !== cartKey);
   renderCart();
 }
 
-function changeQty(productId, delta) {
-  const item = state.cart.find(c => c.productId === productId);
+function changeQty(cartKey, delta) {
+  const item = state.cart.find(c => c.cartKey === cartKey);
   if (!item) return;
-  const newQty = +(item.qty + delta).toFixed(3);
-  if (newQty <= 0) { removeFromCart(productId); return; }
-  const p = state.products.find(x => x.id === productId);
-  if (p && p.stock < newQty) { showToast('⚠ Sin stock suficiente', 'warning'); return; }
-  item.qty = newQty;
+  const newQty     = +(item.qty + delta).toFixed(4);
+  const newQtyBase = +(item.qtyBase + getQtyInBaseUnitFor(delta, item.unit, item.unitBase)).toFixed(4);
+  if (newQty <= 0) { removeFromCart(cartKey); return; }
+  const p = state.products.find(x => x.id === item.productId);
+  if (p && p.stock < newQtyBase) { showToast('⚠ Sin stock suficiente', 'warning'); return; }
+  item.qty     = newQty;
+  item.qtyBase = newQtyBase;
   renderCart();
 }
 
@@ -316,21 +449,25 @@ function renderCart() {
   } else {
     state.cart.forEach(item => {
       const subtotal = item.price * item.qty;
+      // Etiqueta de unidad con distinción kg/lb si aplica
+      const unitLabel = item.unit !== item.unitBase
+        ? `<span style="background:var(--accent-lt);color:var(--accent);font-size:.7rem;font-weight:800;padding:1px 5px;border-radius:8px;margin-left:3px">${item.unit}</span>`
+        : '';
       const div = document.createElement('div');
       div.className = 'cart-item';
       div.innerHTML = `
         <span class="cart-item-emoji">${item.emoji}</span>
         <div class="cart-item-info">
-          <div class="cart-item-name">${item.name}</div>
-          <div class="cart-item-price">${fmt(item.price)}/${item.unit} × ${item.qty}</div>
+          <div class="cart-item-name">${item.name} ${unitLabel}</div>
+          <div class="cart-item-price">${fmt(Math.round(item.price))}/${item.unit} × ${item.qty} ${item.unit}</div>
         </div>
         <div class="cart-item-right">
-          <div class="cart-item-total">${fmt(subtotal)}</div>
+          <div class="cart-item-total">${fmt(Math.round(subtotal))}</div>
           <div class="cart-qty-controls">
-            <button class="qty-btn del" onclick="removeFromCart('${item.productId}')">✕</button>
-            <button class="qty-btn" onclick="changeQty('${item.productId}', -0.5)">−</button>
+            <button class="qty-btn del" onclick="removeFromCart('${item.cartKey}')">✕</button>
+            <button class="qty-btn" onclick="changeQty('${item.cartKey}', -0.5)">−</button>
             <span class="qty-num">${item.qty}</span>
-            <button class="qty-btn" onclick="changeQty('${item.productId}', 0.5)">+</button>
+            <button class="qty-btn" onclick="changeQty('${item.cartKey}', 0.5)">+</button>
           </div>
         </div>
       `;
@@ -339,11 +476,11 @@ function renderCart() {
   }
 
   const { sub, disc, total } = calcCartTotals();
-  document.getElementById('cartSubtotal').textContent = fmt(sub);
-  document.getElementById('cartTotal').textContent = fmt(total);
+  document.getElementById('cartSubtotal').textContent = fmt(Math.round(sub));
+  document.getElementById('cartTotal').textContent     = fmt(Math.round(total));
   if (state.discount > 0) {
-    document.getElementById('discPct').textContent = state.discount;
-    document.getElementById('discountAmt').textContent = '-' + fmt(disc);
+    document.getElementById('discPct').textContent       = state.discount;
+    document.getElementById('discountAmt').textContent   = '-' + fmt(Math.round(disc));
     document.getElementById('discountRow').classList.remove('hidden');
   } else {
     document.getElementById('discountRow').classList.add('hidden');
@@ -402,10 +539,10 @@ function confirmSale() {
   state.sales.unshift(sale);
   saveLS('sales', state.sales);
 
-  // Descontar stock
+  // Descontar stock usando la cantidad en unidad base del producto
   state.cart.forEach(item => {
     const p = state.products.find(x => x.id === item.productId);
-    if (p) p.stock = Math.max(0, +(p.stock - item.qty).toFixed(3));
+    if (p) p.stock = Math.max(0, +(p.stock - (item.qtyBase ?? item.qty)).toFixed(4));
   });
   saveLS('products', state.products);
 
