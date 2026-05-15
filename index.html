@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Legumbrería - POS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="logo">🥦 La Legumbrería</div>
+        <nav>
+            <button class="active">🛒 Venta</button>
+            <button>📦 Inventario</button>
+            <button>📋 Historial</button>
+        </nav>
+        <div class="timer" id="clock">00:00:00</div>
+    </header>
+
+    <main class="container">
+        <aside class="sidebar">
+            <div class="cart-section">
+                <h3>Carrito</h3>
+                <div id="cart-items" class="cart-items">
+                    <p class="empty-msg">El carrito está vacío</p>
+                </div>
+                <div class="totals">
+                    <div class="row"><span>Subtotal</span><span id="subtotal">$0.00</span></div>
+                    <div class="row total"><span>TOTAL</span><span id="total">$0.00</span></div>
+                </div>
+            </div>
+
+            <div class="numpad-section">
+                <div class="display-qty">
+                    <span>Cantidad (kg)</span>
+                    <span id="qty-display">0</span>
+                </div>
+                <div class="numpad">
+                    <button onclick="addNum('1')">1</button>
+                    <button onclick="addNum('2')">2</button>
+                    <button onclick="addNum('3')">3</button>
+                    <button class="btn-blue">Desc %</button>
+                    <button onclick="addNum('4')">4</button>
+                    <button onclick="addNum('5')">5</button>
+                    <button onclick="addNum('6')">6</button>
+                    <button class="btn-blue">Cant.</button>
+                    <button onclick="addNum('7')">7</button>
+                    <button onclick="addNum('8')">8</button>
+                    <button onclick="addNum('9')">9</button>
+                    <button class="btn-orange" onclick="deleteNum()">⌫</button>
+                    <button>+/-</button>
+                    <button onclick="addNum('0')">0</button>
+                    <button onclick="addNum('.')">.</button>
+                    <button class="btn-orange" onclick="clearQty()">C</button>
+                </div>
+                <button class="btn-confirm" onclick="confirmSale()">✅ Confirmar venta</button>
+            </div>
+        </aside>
+
+        <section class="products-area">
+            <input type="text" id="search" placeholder="🔍 Buscar producto..." onkeyup="filterProducts()">
+            <div class="product-grid" id="product-grid">
+                </div>
+        </section>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>
