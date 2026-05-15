@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🌿 La Legumbrería – POS</title>
+  <title>🌿 Fruver – POS</title>
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -14,7 +14,7 @@
 <div id="loginScreen" class="login-screen">
   <div class="login-card">
     <div class="login-logo">🌿</div>
-    <h1 class="login-title">La Legumbrería</h1>
+    <h1 class="login-title">Fruver</h1>
     <p class="login-sub">Sistema de Punto de Venta</p>
     <div class="login-form">
       <div class="input-group">
@@ -28,7 +28,7 @@
       <p id="loginError" class="login-error"></p>
       <button class="btn-login" onclick="doLogin()">Ingresar →</button>
     </div>
-    <p class="login-hint">Usuario: <b>admin</b> · Contraseña: <b>1234</b></p>
+
   </div>
 </div>
 
@@ -39,7 +39,7 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <span class="logo-icon">🌿</span>
-      <span class="logo-text">Legumbrería</span>
+      <span class="logo-text">Fruver</span>
     </div>
     <nav class="sidebar-nav">
       <button class="nav-btn active" data-section="venta" onclick="switchSection('venta', this)">
@@ -57,6 +57,9 @@
       <button class="nav-btn" data-section="calculadora" onclick="switchSection('calculadora', this)">
         <span class="nav-icon">🔢</span><span>Calculadora</span>
       </button>
+      <button class="nav-btn" data-section="configuracion" onclick="switchSection('configuracion', this)">
+        <span class="nav-icon">⚙️</span><span>Configuración</span>
+      </button>
     </nav>
     <div class="sidebar-footer">
       <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
@@ -69,7 +72,7 @@
   <!-- MOBILE HEADER -->
   <header class="mobile-header">
     <button class="hamburger" onclick="toggleSidebar()">☰</button>
-    <span class="mobile-logo">🌿 Legumbrería</span>
+    <span class="mobile-logo">🌿 Fruver</span>
     <div class="mobile-time" id="mobileTime"></div>
   </header>
 
@@ -257,6 +260,108 @@
             <button class="calc-btn btn-op" onclick="calcOp('+')">+</button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ══════ SECCIÓN CONFIGURACIÓN ══════ -->
+    <section id="sec-configuracion" class="section hidden">
+      <div class="section-header"><h2>⚙️ Configuración</h2></div>
+      <div class="config-grid">
+
+        <!-- Cambiar credenciales -->
+        <div class="config-card">
+          <div class="config-card-header">
+            <span class="config-icon">🔐</span>
+            <div>
+              <h3>Credenciales de acceso</h3>
+              <p>Cambia el usuario y contraseña del administrador</p>
+            </div>
+          </div>
+          <div class="config-body">
+            <div class="input-group">
+              <label>Usuario actual</label>
+              <input type="text" id="currentUser" placeholder="Usuario actual" autocomplete="off" />
+            </div>
+            <div class="input-group">
+              <label>Contraseña actual</label>
+              <input type="password" id="currentPass" placeholder="••••••" />
+            </div>
+            <hr class="config-divider" />
+            <div class="input-group">
+              <label>Nuevo usuario</label>
+              <input type="text" id="newUser" placeholder="Nuevo usuario" autocomplete="off" />
+            </div>
+            <div class="input-group">
+              <label>Nueva contraseña</label>
+              <input type="password" id="newPass" placeholder="Mínimo 4 caracteres" />
+            </div>
+            <div class="input-group">
+              <label>Confirmar nueva contraseña</label>
+              <input type="password" id="confirmPass" placeholder="Repetir contraseña" />
+            </div>
+            <p id="credError" class="cred-error"></p>
+            <button class="btn-primary btn-full" onclick="saveCredentials()">💾 Guardar cambios</button>
+          </div>
+        </div>
+
+        <!-- Info del negocio -->
+        <div class="config-card">
+          <div class="config-card-header">
+            <span class="config-icon">🏪</span>
+            <div>
+              <h3>Datos del negocio</h3>
+              <p>Aparecen en la factura impresa</p>
+            </div>
+          </div>
+          <div class="config-body">
+            <div class="input-group">
+              <label>Nombre del negocio</label>
+              <input type="text" id="bizName" placeholder="Fruver" />
+            </div>
+            <div class="input-group">
+              <label>Slogan / descripción</label>
+              <input type="text" id="bizSlogan" placeholder="Tu mercado de confianza" />
+            </div>
+            <div class="input-group">
+              <label>Teléfono</label>
+              <input type="text" id="bizPhone" placeholder="+57 300 000 0000" />
+            </div>
+            <div class="input-group">
+              <label>Dirección</label>
+              <input type="text" id="bizAddress" placeholder="Calle 10 # 5-20, Medellín" />
+            </div>
+            <div class="input-group">
+              <label>Mensaje de pie de factura</label>
+              <input type="text" id="bizFooter" placeholder="¡Gracias por su compra!" />
+            </div>
+            <button class="btn-primary btn-full" onclick="saveBizInfo()">💾 Guardar datos</button>
+          </div>
+        </div>
+
+        <!-- Sesión activa -->
+        <div class="config-card config-card-sm">
+          <div class="config-card-header">
+            <span class="config-icon">👤</span>
+            <div>
+              <h3>Sesión activa</h3>
+              <p>Información del usuario conectado</p>
+            </div>
+          </div>
+          <div class="config-body">
+            <div class="session-info">
+              <div class="session-row">
+                <span>Usuario</span>
+                <strong id="sessionUser">—</strong>
+              </div>
+              <div class="session-row">
+                <span>Último cambio</span>
+                <strong id="sessionLastChange">—</strong>
+              </div>
+            </div>
+            <button class="btn-danger btn-full" style="margin-top:1rem" onclick="doLogout()">🚪 Cerrar sesión</button>
+          </div>
+        </div>
+
       </div>
     </section>
 
