@@ -133,22 +133,38 @@ async function doLogin() {
   const errEl = document.getElementById('loginError');
   errEl.textContent = '';
   showLoading('Verificando credenciales…');
+
   try {
-    const creds = await fbGet('config/credentials');
-    if (creds) { ADMIN_USER = creds.user; ADMIN_PASS = creds.pass; }
-    if (user === ADMIN_USER && pass === ADMIN_PASS) {
-      hideLoading();
-      document.getElementById('loginScreen').classList.add('hidden');
-      document.getElementById('app').classList.remove('hidden');
-      await init();
+    if (navigator.onLine) {
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 4000)
+      );
+      const creds = await Promise.race([fbGet('config/credentials'), timeout]);
+      if (creds) {
+        ADMIN_USER = creds.user;
+        ADMIN_PASS = creds.pass;
+        saveLS('credentials', { user: creds.user, pass: creds.pass });
+      }
     } else {
-      hideLoading();
-      errEl.textContent = '❌ Usuario o contraseña incorrectos';
+      const cached = loadLS('credentials', null);
+      if (cached) { ADMIN_USER = cached.user; ADMIN_PASS = cached.pass; }
     }
   } catch(e) {
+    const cached = loadLS('credentials', null);
+    if (cached) { ADMIN_USER = cached.user; ADMIN_PASS = cached.pass; }
+  }
+
+  if (user === ADMIN_USER && pass === ADMIN_PASS) {
+    saveLS('credentials', { user: ADMIN_USER, pass: ADMIN_PASS });
     hideLoading();
-    errEl.textContent = '❌ Error de conexión. Verifica tu internet.';
-    console.error(e);
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    await init();
+  } else {
+    hideLoading();
+    errEl.textContent = navigator.onLine
+      ? '❌ Usuario o contraseña incorrectos'
+      : '❌ Credenciales incorrectas (modo offline)';
   }
 }
 
