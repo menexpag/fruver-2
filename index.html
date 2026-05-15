@@ -493,7 +493,52 @@
 <!-- Toast -->
 <div id="toast" class="toast hidden"></div>
 
-<!-- ⚠️ CAMBIO CLAVE: type="module" para que Firebase funcione -->
+<!-- Firebase module -->
 <script type="module" src="script.js"></script>
+
+<!-- Puente global: redirige llamadas onclick al módulo -->
+<script>
+  const _fn = name => function() {
+    if (window._fruver && window._fruver[name]) {
+      return window._fruver[name].apply(this, arguments);
+    }
+  };
+  window.doLogin          = _fn('doLogin');
+  window.doLogout         = _fn('doLogout');
+  window.switchSection    = _fn('switchSection');
+  window.toggleSidebar    = _fn('toggleSidebar');
+  window.toggleTheme      = _fn('toggleTheme');
+  window.filterProducts   = _fn('filterProducts');
+  window.openQtyModal     = _fn('openQtyModal');
+  window.selectSaleUnit   = _fn('selectSaleUnit');
+  window.closeQtyModal    = _fn('closeQtyModal');
+  window.confirmQty       = _fn('confirmQty');
+  window.removeFromCart   = _fn('removeFromCart');
+  window.changeQty        = _fn('changeQty');
+  window.clearCart        = _fn('clearCart');
+  window.openDiscountModal  = _fn('openDiscountModal');
+  window.closeDiscountModal = _fn('closeDiscountModal');
+  window.applyDiscount    = _fn('applyDiscount');
+  window.selectPayment    = _fn('selectPayment');
+  window.confirmSale      = _fn('confirmSale');
+  window.printInvoice     = _fn('printInvoice');
+  window.showInvoiceModal = _fn('showInvoiceModal');
+  window.closeInvoiceModal= _fn('closeInvoiceModal');
+  window.filterInventory  = _fn('filterInventory');
+  window.openProductModal = _fn('openProductModal');
+  window.closeProductModal= _fn('closeProductModal');
+  window.saveProduct      = _fn('saveProduct');
+  window.deleteProduct    = _fn('deleteProduct');
+  window.filterHistory    = _fn('filterHistory');
+  window.exportJSON       = _fn('exportJSON');
+  window.resetSales       = _fn('resetSales');
+  window.calcNum          = _fn('calcNum');
+  window.calcOp           = _fn('calcOp');
+  window.calcClear        = _fn('calcClear');
+  window.calcDel          = _fn('calcDel');
+  window.calcEquals       = _fn('calcEquals');
+  window.saveCredentials  = _fn('saveCredentials');
+  window.saveBizInfo      = _fn('saveBizInfo');
+</script>
 </body>
 </html>
