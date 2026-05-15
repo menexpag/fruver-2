@@ -2,7 +2,7 @@
    Fruver PWA – Service Worker (GitHub Pages)
    ═══════════════════════════════════════════ */
 
-const CACHE_NAME = 'fruver-v2';
+const CACHE_NAME = 'fruver-v3';
 const BASE = '/fruver-2';
 const OFFLINE_ASSETS = [
   BASE + '/',
